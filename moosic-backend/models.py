@@ -1,0 +1,239 @@
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Index, Integer, String, UniqueConstraint
+from sqlalchemy.orm import relationship
+from datetime import datetime
+
+from database import Base
+
+
+class User(Base):
+    __tablename__ = "users"
+    __table_args__ = (
+        Index("ix_users_username", "username"),
+        Index("ix_users_email", "email"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    name = Column(String, nullable=False)
+
+    username = Column(String, unique=True, nullable=False)
+
+    email = Column(String, unique=True, nullable=False)
+
+    password = Column(String, nullable=False)
+
+    role = Column(String, nullable=False, default="user")
+    is_premium = Column(Boolean, nullable=False, default=False)
+    profile_note = Column(String, nullable=True, default="")
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    playlists = relationship(
+        "Playlist",
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
+    payments = relationship("Payment", back_populates="user")
+    downloads = relationship(
+        "Download",
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
+
+
+class Payment(Base):
+    __tablename__ = "payments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    plan = Column(String, nullable=False)
+    amount = Column(Float, nullable=False)
+    currency = Column(String, nullable=False)
+    status = Column(String, nullable=False)
+    payment_date = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="payments")
+
+
+class Artist(Base):
+    __tablename__ = "artists"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    image_url = Column(String, nullable=True)
+
+    songs = relationship("Song", back_populates="artist")
+    albums = relationship("Album", back_populates="artist")
+
+
+class Album(Base):
+    __tablename__ = "albums"
+    __table_args__ = (
+        Index("ix_albums_artist_id", "artist_id"),  # DATABASE OPTIMIZATION: Index for artist lookups
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    artist_id = Column(Integer, ForeignKey("artists.id"))
+    release_date = Column(String, nullable=True)
+    cover_url = Column(String, nullable=True)
+
+    songs = relationship("Song", back_populates="album")
+    artist = relationship("Artist", back_populates="albums")
+
+
+class Song(Base):
+    __tablename__ = "songs"
+    __table_args__ = (
+        Index("ix_songs_artist_id", "artist_id"),
+        Index("ix_songs_album_id", "album_id"),  # DATABASE OPTIMIZATION: Index for album lookups
+        Index("ix_songs_genre", "genre"),
+        Index("ix_songs_mood", "mood"),
+        Index("ix_songs_language", "language"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+
+    artist_id = Column(Integer, ForeignKey("artists.id"))
+    album_id = Column(Integer, ForeignKey("albums.id"))
+
+    genre = Column(String, nullable=True)
+    mood = Column(String, nullable=True)
+    language = Column(String, nullable=False, default="English")
+    duration = Column(Integer, nullable=True)
+    audio_url = Column(String, nullable=True)
+    cover_url = Column(String, nullable=True)
+
+    # Set by scripts/verify_and_fix_audio_urls.py or scripts/health_check_audio_urls.py.
+    # NULL = never checked yet, True/False = result of the last oEmbed check.
+    is_playable = Column(Boolean, nullable=True, default=None)
+    audio_checked_at = Column(DateTime, nullable=True)
+
+    artist = relationship("Artist", back_populates="songs")
+    album = relationship("Album", back_populates="songs")
+    downloads = relationship(
+        "Download",
+        back_populates="song",
+        cascade="all, delete-orphan"
+    )
+
+
+class Playlist(Base):
+    __tablename__ = "playlists"
+    __table_args__ = (
+        Index("ix_playlists_user_deleted", "user_id", "is_deleted"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"))
+
+    cover_url = Column(String, nullable=True)
+    description = Column(String, nullable=True)
+
+    # Recycle Bin
+    is_deleted = Column(Boolean, default=False)
+    deleted_at = Column(DateTime, nullable=True)
+
+    user = relationship("User", back_populates="playlists")
+    songs = relationship("PlaylistSong", back_populates="playlist", cascade="all, delete-orphan")
+
+
+class LikedSong(Base):
+    __tablename__ = "liked_songs"
+    __table_args__ = (
+        UniqueConstraint("user_id", "song_id", name="uq_liked_song"),
+        Index("ix_liked_songs_user_song", "user_id", "song_id"),
+        Index("ix_liked_songs_song_id", "song_id"),  # DATABASE OPTIMIZATION: Reverse index for song queries
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    song_id = Column(Integer, ForeignKey("songs.id"))
+
+
+class Download(Base):
+    __tablename__ = "downloads"
+    __table_args__ = (
+        UniqueConstraint("user_id", "song_id", name="uq_download_user_song"),
+        Index("ix_downloads_user_id", "user_id"),
+        Index("ix_downloads_song_id", "song_id"),
+        Index("ix_downloads_user_downloaded", "user_id", "downloaded_at"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    song_id = Column(Integer, ForeignKey("songs.id"), nullable=False)
+    downloaded_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="downloads")
+    song = relationship("Song", back_populates="downloads")
+
+
+class ListeningHistory(Base):
+    __tablename__ = "listening_history"
+    __table_args__ = (
+        Index("ix_listening_history_user_played", "user_id", "played_at"),
+        Index("ix_listening_history_song_id", "song_id"),  # DATABASE OPTIMIZATION: Index for song lookups
+        Index("ix_listening_history_completed", "user_id", "completed"),  # DATABASE OPTIMIZATION: For completed query
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    song_id = Column(Integer, ForeignKey("songs.id"))
+    played_at = Column(DateTime, default=datetime.utcnow)
+    progress_seconds = Column(Integer, default=0)
+    completed = Column(Boolean, default=False)
+    skipped = Column(Boolean, default=False)
+
+
+class PlaybackState(Base):
+    __tablename__ = "playback_states"
+    __table_args__ = (
+        UniqueConstraint("user_id", name="uq_playback_user"),
+        Index("ix_playback_states_song_id", "song_id"),  # DATABASE OPTIMIZATION: Index for song lookups
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    song_id = Column(Integer, ForeignKey("songs.id"), nullable=True)
+    position_seconds = Column(Integer, default=0)
+    is_playing = Column(Boolean, default=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class QueueItem(Base):
+    __tablename__ = "queue_items"
+    __table_args__ = (
+        Index("ix_queue_items_user_position", "user_id", "position"),
+        Index("ix_queue_items_song_id", "song_id"),  # DATABASE OPTIMIZATION: Index for song lookups
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    song_id = Column(Integer, ForeignKey("songs.id"), nullable=False)
+    position = Column(Integer, nullable=False)
+    added_at = Column(DateTime, default=datetime.utcnow)
+
+class PlaylistSong(Base):
+    __tablename__ = "playlist_songs"
+    __table_args__ = (
+        UniqueConstraint("playlist_id", "song_id", name="uq_playlist_song"),
+        Index("ix_playlist_songs_playlist_position", "playlist_id", "position"),
+        Index("ix_playlist_songs_playlist_song", "playlist_id", "song_id"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    playlist_id = Column(
+        Integer,
+        ForeignKey("playlists.id")
+    )
+
+    song_id = Column(
+        Integer,
+        ForeignKey("songs.id")
+    )
+    position = Column(Integer, nullable=False, default=0)
+    playlist = relationship("Playlist", back_populates="songs")

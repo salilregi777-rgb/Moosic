@@ -1,0 +1,111 @@
+--- a/Frontend/MOOSIC-visual-refresh-final/MOOSIC-visual-refresh/artifacts/moodsic/src/App.tsx
++++ b/Frontend/MOOSIC-visual-refresh-final/MOOSIC-visual-refresh/artifacts/moodsic/src/App.tsx
+@@ -4717,10 +4717,11 @@
+   authUser: AuthUser;
+   setNotice: (notice: string) => void;
+   onSignOut: () => void;
+-  onSaveProfile: (name: string, profileNote: string) => Promise<boolean>;
++  onSaveProfile: (name: string, profileNote: string, username?: string) => Promise<boolean>;
+ }) {
+   const [editing, setEditing] = useState(false);
+   const [name, setName] = useState(authUser.name);
++  const [username, setUsername] = useState(authUser.username);
+   const [profileNote, setProfileNote] = useState(authUser.profileNote ?? '');
+   const [isSaving, setIsSaving] = useState(false);
+   const [stats, setStats] = useState<ListeningStats | null>(null);
+@@ -4728,8 +4729,9 @@
+ 
+   useEffect(() => {
+     setName(authUser.name);
++    setUsername(authUser.username);
+     setProfileNote(authUser.profileNote ?? '');
+-  }, [authUser.name, authUser.profileNote]);
++  }, [authUser.name, authUser.username, authUser.profileNote]);
+ 
+   useEffect(() => {
+     let active = true;
+@@ -4770,22 +4772,29 @@
+ 
+   const cancel = () => {
+     setName(authUser.name);
++    setUsername(authUser.username);
+     setProfileNote(authUser.profileNote ?? '');
+     setEditing(false);
+   };
+ 
+   const save = async () => {
+     const cleanedName = name.trim();
++    const cleanedUsername = username.trim();
+ 
+     if (!cleanedName) {
+       setNotice('Your name cannot be empty.');
+       return;
+     }
+ 
++    if (!cleanedUsername) {
++      setNotice('Your username cannot be empty.');
++      return;
++    }
++
+     setIsSaving(true);
+ 
+     try {
+-      const saved = await onSaveProfile(cleanedName, profileNote.trim());
++      const saved = await onSaveProfile(cleanedName, profileNote.trim(), cleanedUsername);
+       if (saved) {
+         setEditing(false);
+       }
+@@ -4829,6 +4838,16 @@
+                 data-testid="input-profile-name"
+               />
+ 
++              <label htmlFor="profile-username">Username</label>
++              <input
++                id="profile-username"
++                value={username}
++                onChange={(event) => setUsername(event.target.value)}
++                maxLength={32}
++                placeholder="Choose a username"
++                data-testid="input-profile-username"
++              />
++
+               <label htmlFor="profile-note">Currently into</label>
+               <input
+                 id="profile-note"
+@@ -4860,7 +4879,7 @@
+             </div>
+           ) : (
+             <>
+-              <h1>{authUser.username}</h1>
++              <h1 className="profile-username">{authUser.username}</h1>
+               <p>
+                 {authUser.name}
+                 {currentNote ? ` · ${currentNote}` : ' · Tell MOOSIC what you’re currently into.'}
+@@ -6282,7 +6301,8 @@
+ 
+   const updateProfile = async (
+     name: string,
+-    profileNote: string
++    profileNote: string,
++    username?: string
+   ): Promise<boolean> => {
+     try {
+       const payload = await apiRequest('/me', {
+@@ -6290,6 +6310,7 @@
+         body: JSON.stringify({
+           name,
+           profile_note: profileNote,
++          ...(username ? { username } : {}),
+         }),
+       }) as { user?: unknown };
+ 
+--- a/Frontend/MOOSIC-visual-refresh-final/MOOSIC-visual-refresh/artifacts/moodsic/src/index.css
++++ b/Frontend/MOOSIC-visual-refresh-final/MOOSIC-visual-refresh/artifacts/moodsic/src/index.css
+@@ -574,6 +574,7 @@
+ .profile-panel, .summary-panel { padding: 25px; }
+ .profile-avatar { width: 84px; height: 84px; display: grid; place-items: center; border: 1px solid #f1bc46; border-radius: 50%; color: #f1bc46; font-size: 27px; margin-bottom: 22px; }
+ .profile-panel h1 { font-size: clamp(39px, 6vw, 64px); line-height: .86; font-weight: 400; letter-spacing: -.05em; margin: 0 0 8px; }
++.profile-panel h1.profile-username { max-width: 100%; overflow-wrap: break-word; word-break: break-word; }
+ .profile-panel p { color: #97939d; font-size: 15px; }
+ .profile-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 18px; }
+ .sign-out-button { display: inline-flex; align-items: center; gap: 7px; border: 1px solid rgba(218,85,59,.58); padding: 7px 11px; color: #ffb2a3; background: rgba(218,85,59,.1); cursor: pointer; font-size: 12px; transition: transform .2s ease, background .2s ease; }
