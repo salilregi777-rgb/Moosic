@@ -1,0 +1,227 @@
+{
+  "checked_at": "2026-10-07",
+  "method": "Primary official artist/label YouTube search results, followed by official oEmbed metadata lookup. Metadata presence does not establish embedded playback, geographic availability, or direct-audio rights.",
+  "repairs": [
+    {
+      "id": 8,
+      "title": "Someone Like You",
+      "artist": "Adele",
+      "old_source": "https://www.youtube.com/embed/hHUbLv4ThOo",
+      "new_source": "https://www.youtube.com/embed/hLQl3WQQoQ0",
+      "evidence_url": "https://www.youtube.com/watch?v=hLQl3WQQoQ0",
+      "primary_channel_from_search": "Adele",
+      "identity_certainty": "high",
+      "oembed": {
+        "http_status": 200,
+        "title": "Adele - Someone Like You (Official Music Video)",
+        "author_name": "Adele",
+        "author_url": "https://www.youtube.com/@adele"
+      },
+      "included_in_migration": true
+    },
+    {
+      "id": 42,
+      "title": "I Kissed a Girl",
+      "artist": "Katy Perry",
+      "old_source": "https://www.youtube.com/embed/6FOUqQt3Kg0",
+      "new_source": "https://www.youtube.com/embed/tAp9BKosZXs",
+      "evidence_url": "https://www.youtube.com/watch?v=tAp9BKosZXs",
+      "primary_channel_from_search": "Katy Perry",
+      "identity_certainty": "high",
+      "oembed": {
+        "http_status": 200,
+        "title": "Katy Perry - I Kissed A Girl (Official Music Video)",
+        "author_name": "KatyPerryVEVO",
+        "author_url": "https://www.youtube.com/@KatyPerryVEVO"
+      },
+      "included_in_migration": true
+    },
+    {
+      "id": 44,
+      "title": "Yellow",
+      "artist": "Coldplay",
+      "old_source": "https://www.youtube.com/embed/sLprVF6d7Ug",
+      "new_source": "https://www.youtube.com/embed/yKNxeF4KMsY",
+      "evidence_url": "https://www.youtube.com/watch?v=yKNxeF4KMsY",
+      "primary_channel_from_search": "Coldplay",
+      "identity_certainty": "high",
+      "oembed": {
+        "http_status": 200,
+        "title": "Coldplay - Yellow (Official Video)",
+        "author_name": "Coldplay",
+        "author_url": "https://www.youtube.com/@coldplay"
+      },
+      "included_in_migration": true
+    },
+    {
+      "id": 29,
+      "title": "Slide",
+      "artist": "Calvin Harris",
+      "old_source": "https://www.youtube.com/embed/kJQP7kiw9Fk",
+      "new_source": "https://www.youtube.com/embed/8Ee4QjCEHHc",
+      "evidence_url": "https://www.youtube.com/watch?v=8Ee4QjCEHHc",
+      "primary_channel_from_search": "Calvin Harris",
+      "identity_certainty": "high",
+      "oembed": {
+        "http_status": 200,
+        "title": "Calvin Harris - Slide (Official Audio) ft. Frank Ocean, Migos",
+        "author_name": "CalvinHarrisVEVO",
+        "author_url": "https://www.youtube.com/@CalvinHarrisVEVO"
+      },
+      "included_in_migration": true
+    },
+    {
+      "id": 59,
+      "title": "Tum Hi Ho Bandhu",
+      "artist": "Moosic Mood Mix",
+      "old_source": null,
+      "new_source": "https://www.youtube.com/embed/W8OoagONXmg",
+      "evidence_url": "https://www.youtube.com/watch?v=W8OoagONXmg",
+      "primary_channel_from_search": "Pritam / Sony Music EROS",
+      "identity_certainty": "high_title_match",
+      "oembed": {
+        "http_status": 200,
+        "title": "Tum Hi Ho Bandhu",
+        "author_name": "Pritam - Topic",
+        "author_url": "https://www.youtube.com/channel/UCCTN01plFzn4npREHKT2_9Q"
+      },
+      "included_in_migration": true
+    },
+    {
+      "id": 60,
+      "title": "Uff Teri Adaa",
+      "artist": "Moosic Mood Mix",
+      "old_source": null,
+      "new_source": "https://www.youtube.com/embed/JknhdDv9CRc",
+      "evidence_url": "https://www.youtube.com/watch?v=JknhdDv9CRc",
+      "primary_channel_from_search": "T-Series",
+      "identity_certainty": "high_title_match",
+      "oembed": {
+        "http_status": 200,
+        "title": "Uff Teri Adaa Full Song | Karthik Calling Karthik | Farhan Akhtar, Deepika Padukone",
+        "author_name": "T-Series",
+        "author_url": "https://www.youtube.com/@tseries"
+      },
+      "included_in_migration": true
+    },
+    {
+      "id": 62,
+      "title": "Sooraj Ki Baahon Mein",
+      "artist": "Moosic Mood Mix",
+      "old_source": null,
+      "new_source": "https://www.youtube.com/embed/nj-UhS4ZtQg",
+      "evidence_url": "https://www.youtube.com/watch?v=nj-UhS4ZtQg",
+      "primary_channel_from_search": "T-Series",
+      "identity_certainty": "high_title_match",
+      "oembed": {
+        "http_status": 200,
+        "title": "'Suraj ki Baahon mein' | Zindagi Na Milegi Dobara",
+        "author_name": "T-Series",
+        "author_url": "https://www.youtube.com/@tseries"
+      },
+      "included_in_migration": true
+    },
+    {
+      "id": 63,
+      "title": "Phir Kabhi",
+      "artist": "Moosic Mood Mix",
+      "old_source": null,
+      "new_source": "https://www.youtube.com/embed/19nnjV93N0s",
+      "evidence_url": "https://www.youtube.com/watch?v=19nnjV93N0s",
+      "primary_channel_from_search": "T-Series",
+      "identity_certainty": "high_title_match",
+      "oembed": {
+        "http_status": 200,
+        "title": "PHIR KABHI- Full Song | M.S. DHONI -THE UNTOLD STORY | Arijit Singh | Sushant Singh Disha Patani",
+        "author_name": "T-Series",
+        "author_url": "https://www.youtube.com/@tseries"
+      },
+      "included_in_migration": true
+    },
+    {
+      "id": 65,
+      "title": "Jeena Jeena",
+      "artist": "Moosic Mood Mix",
+      "old_source": null,
+      "new_source": "https://www.youtube.com/embed/AsLPGPs5iQk",
+      "evidence_url": "https://www.youtube.com/watch?v=AsLPGPs5iQk",
+      "primary_channel_from_search": "Sachin-Jigar / Sony Music EROS",
+      "identity_certainty": "high_title_match",
+      "oembed": {
+        "http_status": 200,
+        "title": "Jeena Jeena",
+        "author_name": "Sachin-Jigar - Topic",
+        "author_url": "https://www.youtube.com/channel/UCcuXjaACiyViK8QTuztjR6A"
+      },
+      "included_in_migration": true
+    },
+    {
+      "id": 66,
+      "title": "Aaoge Jab Tum",
+      "artist": "Moosic Mood Mix",
+      "old_source": null,
+      "new_source": "https://www.youtube.com/embed/CNZMIhckaA0",
+      "evidence_url": "https://www.youtube.com/watch?v=CNZMIhckaA0",
+      "primary_channel_from_search": "T-Series",
+      "identity_certainty": "high_title_match",
+      "oembed": {
+        "http_status": 200,
+        "title": "Lyrical: Aaoge Jab Tum | Jab We Met | Kareena  Kapoor, Shahid Kapoor | Ustad Rashid Khan",
+        "author_name": "T-Series",
+        "author_url": "https://www.youtube.com/@tseries"
+      },
+      "included_in_migration": true
+    },
+    {
+      "id": 68,
+      "title": "Mere Bina",
+      "artist": "Moosic Mood Mix",
+      "old_source": null,
+      "new_source": "https://www.youtube.com/embed/3chj4ooasmE",
+      "evidence_url": "https://www.youtube.com/watch?v=3chj4ooasmE",
+      "primary_channel_from_search": "Pritam / Sony Music India",
+      "identity_certainty": "high_title_match",
+      "oembed": {
+        "http_status": 200,
+        "title": "Mere Bina",
+        "author_name": "Pritam - Topic",
+        "author_url": "https://www.youtube.com/channel/UCCTN01plFzn4npREHKT2_9Q"
+      },
+      "included_in_migration": true
+    },
+    {
+      "id": 70,
+      "title": "Tum Ho Toh",
+      "artist": "Moosic Mood Mix",
+      "old_source": null,
+      "new_source": "https://www.youtube.com/embed/poYtscS7bto",
+      "evidence_url": "https://www.youtube.com/watch?v=poYtscS7bto",
+      "primary_channel_from_search": "T-Series",
+      "identity_certainty": "high_title_match",
+      "oembed": {
+        "http_status": 200,
+        "title": "Lyrical: Tum Ho Toh | Rock On | Arjun Rampal, Farhan Akhtar | Shankar-Ehsaan-Loy",
+        "author_name": "T-Series",
+        "author_url": "https://www.youtube.com/@tseries"
+      },
+      "included_in_migration": true
+    },
+    {
+      "id": 72,
+      "title": "Kaisi Hai Ye Rut",
+      "artist": "Moosic Mood Mix",
+      "old_source": null,
+      "new_source": "https://www.youtube.com/embed/XBr11cQDg-E",
+      "evidence_url": "https://www.youtube.com/watch?v=XBr11cQDg-E",
+      "primary_channel_from_search": "T-Series",
+      "identity_certainty": "high_title_match",
+      "oembed": {
+        "http_status": 200,
+        "title": "Kaisi Hai Ye Rut [Full Song] Dil Chahta Hai",
+        "author_name": "T-Series",
+        "author_url": "https://www.youtube.com/@tseries"
+      },
+      "included_in_migration": true
+    }
+  ]
+}

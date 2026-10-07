@@ -1,0 +1,15 @@
+{
+  "name": "moosic",
+  "private": true,
+  "packageManager": "pnpm@11.19.0",
+  "engines": { "node": ">=22.16.0" },
+  "scripts": {
+    "setup": "pnpm --dir Frontend/MOOSIC-visual-refresh-final/MOOSIC-visual-refresh install --frozen-lockfile",
+    "dev": "pnpm --dir Frontend/MOOSIC-visual-refresh-final/MOOSIC-visual-refresh --filter @workspace/moodsic dev",
+    "build": "pnpm run typecheck && pnpm --dir Frontend/MOOSIC-visual-refresh-final/MOOSIC-visual-refresh --filter @workspace/moodsic build",
+    "build:vercel": "pnpm run build && node scripts/prepare-vercel.mjs",
+    "typecheck": "pnpm --dir Frontend/MOOSIC-visual-refresh-final/MOOSIC-visual-refresh --filter @workspace/moodsic typecheck",
+    "test": "pnpm --dir Frontend/MOOSIC-visual-refresh-final/MOOSIC-visual-refresh --filter @workspace/moodsic test",
+    "preview": "pnpm --dir Frontend/MOOSIC-visual-refresh-final/MOOSIC-visual-refresh --filter @workspace/moodsic serve"
+  }
+}

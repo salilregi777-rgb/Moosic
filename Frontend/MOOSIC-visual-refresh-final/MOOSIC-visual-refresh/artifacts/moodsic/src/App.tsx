@@ -1,7 +1,10 @@
-﻿import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Home as HomeIcon, ListMusic, Music2, Pause, Play, RotateCcw, Search, SkipBack, SkipForward, UserRound, X, Disc3, Pencil, Trash2, ArrowLeft, Shuffle, Volume2, VolumeX, Plus, Sparkles, Check, WandSparkles, Palette, LogOut, ArrowRight, Heart, Crown, LockKeyhole, Download, CreditCard } from 'lucide-react';
 import { Link, Route, Router as WouterRouter, Switch, useLocation } from 'wouter';
-import logoAsset from '@assets/moodsic-references/moosic-logo.png';
+import { AnimatedLogo } from '@/components/animated-logo';
+import { SongAudioEditor } from '@/components/song-audio-editor';
+import { PremiumCheckout } from '@/components/premium-checkout';
+import { requireSupabase, supabase, supabaseConfigured, supabaseApiRequest } from '@/lib/supabase';
 import loginBackdropAsset from '@assets/moodsic-references/login-backdrop.png';
 import loadingFieldAsset from '@assets/moodsic-references/loading-field.png';
 import cowRunnerAsset from '@assets/moodsic-references/cow-runner.png';
@@ -11,6 +14,8 @@ import neutralMoodArt from '@assets/moodsic-references/mood-art-neutral.png';
 import exhaustedMoodArt from '@assets/moodsic-references/mood-art-exhausted.png';
 import angryMoodArt from '@assets/moodsic-references/mood-art-angry.png';
 import { ErrorBoundary } from '@/components/error-boundary';
+import { MediaPlayer } from '@/lib/media-player';
+import { extractYouTubeVideoId, resolvePlaybackSource, type PlaybackSource } from '@/lib/playback-source';
 
 type MoodName = 'Sad' | 'Happy' | 'Neutral' | 'Exhausted' | 'Angry';
 type Mood = { name: MoodName; color: string; background: string; text: string; line: string; description: string; art: string };
@@ -76,6 +81,9 @@ type PremiumStatus = {
   is_premium: boolean;
   plan?: string | null;
   status?: string | null;
+  source?: 'manual' | 'purchase' | null;
+  expires_at?: string | null;
+  manual_premium?: boolean;
 };
 
 type ManagerDashboardData = {
@@ -177,7 +185,7 @@ const playlistBlueprints = [
   { id: 'p5-hindi', name: 'Gussa FM', mood: 'Angry' as MoodName, language: 'Hindi', description: 'Hindi songs for the fire in your chest.' },
 ];
 
-const API_BASE = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+
 
 function isMoodName(value: string | null | undefined): value is MoodName {
   return value === 'Sad' || value === 'Happy' || value === 'Neutral' || value === 'Exhausted' || value === 'Angry';
@@ -332,200 +340,59 @@ function normalizeBackendUser(raw: unknown): AuthUser {
   };
 }
 
-function tokenHasExpired(token: string) {
-  try {
-    const payloadPart = token.split('.')[1];
-    if (!payloadPart) return true;
-
-    const normalized = payloadPart
-      .replace(/-/g, '+')
-      .replace(/_/g, '/');
-
-    const padded =
-      normalized +
-      '='.repeat((4 - (normalized.length % 4)) % 4);
-
-    const payload = JSON.parse(window.atob(padded)) as {
-      exp?: number;
-    };
-
-    return typeof payload.exp === 'number'
-      ? payload.exp <= Date.now() / 1000
-      : false;
-  } catch {
-    return true;
-  }
-}
-
-function readAuthSession(): AuthSession | null {
-  try {
-    const stored = window.localStorage.getItem(AUTH_STORAGE_KEY);
-
-    if (!stored) {
-      return null;
-    }
-
-    const session = JSON.parse(stored) as AuthSession;
-
-    if (
-      !session?.token ||
-      !session?.user ||
-      !session.user.email ||
-      tokenHasExpired(session.token)
-    ) {
-      window.localStorage.removeItem(AUTH_STORAGE_KEY);
-      return null;
-    }
-
-    return session;
-  } catch {
-    window.localStorage.removeItem(AUTH_STORAGE_KEY);
-    return null;
-  }
-}
-
-function storeAuthSession(session: AuthSession) {
-  window.localStorage.setItem(
-    AUTH_STORAGE_KEY,
-    JSON.stringify(session)
-  );
-
-  // Remove the old fake-login state from earlier development versions.
-  window.localStorage.removeItem(LEGACY_DEMO_USER_KEY);
-}
-
+// Supabase owns session persistence and refresh. This cache holds only the
+// currently rendered profile/session; legacy hand-rolled tokens are discarded.
+let activeAuthSession: AuthSession | null = null;
+function readAuthSession() { return activeAuthSession; }
+function storeAuthSession(session: AuthSession) { activeAuthSession = session; }
 function clearAuthSession() {
+  activeAuthSession = null;
   window.localStorage.removeItem(AUTH_STORAGE_KEY);
   window.localStorage.removeItem(LEGACY_DEMO_USER_KEY);
 }
 
-function apiErrorMessage(payload: unknown, fallback: string) {
-  const data = (payload ?? {}) as {
-    detail?: string | Array<{ msg?: string }>;
-    message?: string;
-  };
-
-  if (typeof data.detail === 'string') {
-    return data.detail;
+async function postAuth(path: '/users' | '/login', body: Record<string, string>) {
+  const client = requireSupabase();
+  if (path === '/users') {
+    const { data, error } = await client.auth.signUp({
+      email: body.email,
+      password: body.password,
+      options: {
+        data: { name: body.name, username: body.username },
+        emailRedirectTo: window.location.origin + import.meta.env.BASE_URL,
+      },
+    });
+    if (error) throw error;
+    return { requiresConfirmation: !data.session };
   }
-
-  if (Array.isArray(data.detail)) {
-    const messages = data.detail
-      .map((item) => item?.msg)
-      .filter(Boolean);
-
-    if (messages.length > 0) {
-      return messages.join(', ');
-    }
-  }
-
-  if (typeof data.message === 'string') {
-    return data.message;
-  }
-
-  return fallback;
+  const { error } = await client.auth.signInWithPassword({ email: body.email, password: body.password });
+  if (error) throw error;
+  return { requiresConfirmation: false };
 }
 
-async function postAuth(
-  path: '/users' | '/login',
-  body: Record<string, string>
-) {
-  const response = await fetch(`${API_BASE}${path}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  });
-
-  const payload = await response
-    .json()
-    .catch(() => ({}));
-
-  if (!response.ok) {
-    throw new Error(
-      apiErrorMessage(
-        payload,
-        `Request failed with status ${response.status}.`
-      )
-    );
-  }
-
-  return payload as {
-    message?: string;
-    token?: string;
-    user?: unknown;
-  };
+async function restoreAuthSession(): Promise<AuthSession | null> {
+  const { data: { session }, error } = await requireSupabase().auth.getSession();
+  if (error) throw error;
+  if (!session) return null;
+  const user = normalizeBackendUser(await supabaseApiRequest('/me'));
+  const restored = { user, token: session.access_token };
+  storeAuthSession(restored);
+  return restored;
 }
 
-async function loginWithBackend(
-  email: string,
-  password: string
-): Promise<AuthSession> {
-  const payload = await postAuth('/login', {
-    email: email.trim().toLowerCase(),
-    password,
-  });
-
-  if (!payload.token || !payload.user) {
-    throw new Error(
-      'Login succeeded, but the backend did not return a valid session.'
-    );
-  }
-
-  return {
-    user: normalizeBackendUser(payload.user),
-    token: payload.token,
-  };
-}
-
-function getAuthenticatedSession() {
-  const session = readAuthSession();
-
-  if (!session) {
-    throw new Error('Your session has expired. Please sign in again.');
-  }
-
+async function loginWithBackend(email: string, password: string): Promise<AuthSession> {
+  await postAuth('/login', { email: email.trim().toLowerCase(), password });
+  const session = await restoreAuthSession();
+  if (!session) throw new Error('Please confirm your email before signing in.');
   return session;
 }
 
-async function apiRequest(
-  path: string,
-  options: RequestInit = {}
-): Promise<unknown> {
-  const session = getAuthenticatedSession();
-
-  const headers = new Headers(options.headers);
-  headers.set('Authorization', `Bearer ${session.token}`);
-
-  if (options.body && !headers.has('Content-Type')) {
-    headers.set('Content-Type', 'application/json');
-  }
-
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers,
-  });
-
-  const payload = await response
-    .json()
-    .catch(() => null);
-
-  if (!response.ok) {
-    if (response.status === 401) {
-      clearAuthSession();
-    }
-
-    throw new Error(
-      apiErrorMessage(
-        payload,
-        `Request failed with status ${response.status}.`
-      )
-    );
-  }
-
-  return payload;
+function getAuthenticatedSession() {
+  if (!activeAuthSession) throw new Error('Your session has expired. Please sign in again.');
+  return activeAuthSession;
 }
+
+const apiRequest = supabaseApiRequest;
 
 function unwrapArray(payload: unknown, keys: string[]) {
   if (Array.isArray(payload)) {
@@ -812,7 +679,8 @@ function LoadingScreen() {
 function AuthPage({ mode, setMode, onAuthenticated, connectionError }: { mode: AuthMode; setMode: (mode: AuthMode) => void; onAuthenticated: (user: AuthUser) => void; connectionError?: string }) {
   const isSignup = mode === 'signup';
   const [form, setForm] = useState({ email: '', name: '', username: '', password: '' });
-  const [message, setMessage] = useState(connectionError || '');
+  const [message, setMessage] = useState(connectionError || (!supabaseConfigured ? 'Moosic is waiting for its Supabase connection. Finish project setup to sign in.' : ''));
+  useEffect(() => { if (connectionError) setMessage(connectionError); }, [connectionError]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const updateField = (field: keyof typeof form, value: string) => {
@@ -836,16 +704,19 @@ function AuthPage({ mode, setMode, onAuthenticated, connectionError }: { mode: A
       const password = form.password;
 
       if (isSignup) {
-        await postAuth('/users', {
+        const registration = await postAuth('/users', {
           name: form.name.trim(),
           username: form.username.trim(),
           email,
           password,
         });
+        if (registration.requiresConfirmation) {
+          setMessage('Check your email to confirm your account, then sign in.');
+          setMode('login');
+          return;
+        }
       }
 
-      // Always log in after registration. This gives us the backend's
-      // canonical user object and JWT even if /users changes its response shape.
       const session = await loginWithBackend(email, password);
 
       storeAuthSession(session);
@@ -868,8 +739,11 @@ function AuthPage({ mode, setMode, onAuthenticated, connectionError }: { mode: A
         <div className="auth-form-side">
           <button className="auth-back" type="button" onClick={() => setMode('login')} disabled={!isSignup}>← Back</button>
           <div className="auth-heading">
-            <span>{isSignup ? 'Sign up' : 'Login to'}</span>
-            {!isSignup && <h1>MOOSIC</h1>}
+            <span>{isSignup ? 'Sign up to' : 'Login to'}</span>
+            <div className="auth-brand">
+              <AnimatedLogo testId="img-auth-logo" />
+              <h1>MOOSIC</h1>
+            </div>
           </div>
           <form onSubmit={submit} className="auth-form">
             {isSignup && (
@@ -920,7 +794,7 @@ function AuthPage({ mode, setMode, onAuthenticated, connectionError }: { mode: A
               />
             </label>
             {message && <p className="auth-message" role="alert">{message}</p>}
-            <button className="auth-submit" type="submit" disabled={isSubmitting}>
+            <button className="auth-submit" type="submit" disabled={isSubmitting || !supabaseConfigured}>
               {isSubmitting
                 ? (isSignup ? 'Creating your account…' : 'Signing you in…')
                 : isSignup
@@ -962,22 +836,42 @@ function AuthGate({
   const [state, setState] = useState<'checking' | 'ready'>(
     authUser ? 'ready' : 'checking'
   );
-  const [connectionError] = useState('');
+  const [connectionError, setConnectionError] = useState('');
 
   useEffect(() => {
-    if (authUser) {
-      setState('ready');
-      return;
-    }
-
-    const session = readAuthSession();
-
-    if (session) {
-      setAuthUser(session.user);
-    }
-
-    setState('ready');
-  }, [authUser, setAuthUser]);
+    let active = true;
+    let revision = 0;
+    const restore = async () => {
+      const request = ++revision;
+      try {
+        const session = await restoreAuthSession();
+        if (active && request === revision) {
+          setAuthUser(session?.user ?? null);
+          setConnectionError('');
+        }
+      } catch (error) {
+        if (active && request === revision) setConnectionError(error instanceof Error ? error.message : 'Could not restore your session.');
+      } finally {
+        if (active) setState('ready');
+      }
+    };
+    clearAuthSession();
+    if (!supabase) { setState('ready'); return; }
+    void restore();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        revision++;
+        clearAuthSession();
+        if (active) setAuthUser(null);
+      } else if (event === 'TOKEN_REFRESHED' && session && activeAuthSession) {
+        storeAuthSession({ ...activeAuthSession, token: session.access_token });
+      } else if (event === 'SIGNED_IN') {
+        // Do not await other auth methods inside the SDK's auth lock.
+        window.setTimeout(() => { if (active) void restore(); }, 0);
+      }
+    });
+    return () => { active = false; subscription.unsubscribe(); };
+  }, [setAuthUser]);
 
   if (state === 'checking') {
     return <LoadingScreen />;
@@ -1000,7 +894,7 @@ function AuthGate({
 function Brand() {
   return (
     <Link href="/" className="brand-lockup" data-testid="link-brand">
-      <span className="brand-mark"><img src={logoAsset} alt="MOOSIC logo" data-testid="img-brand-logo" /></span>
+      <AnimatedLogo testId="img-brand-logo" />
       <span><span className="brand-name">MOOSIC</span></span>
     </Link>
   );
@@ -1048,7 +942,7 @@ function Shell({ children, authUser, appBackground, isPremium }: { children: Rea
           {isPicker ? (
             <header className="picker-topbar">
               <Link href="/" className="picker-brand" data-testid="link-picker-brand">
-                <span className="brand-mark"><img src={logoAsset} alt="MOOSIC logo" /></span>
+                <AnimatedLogo />
                 <span>MOOSIC</span>
               </Link>
               <nav className="picker-nav" aria-label="MOOSIC navigation">
@@ -1158,60 +1052,6 @@ function RecordCover({ mood, label = 'MOOSIC' }: { mood: Mood; label?: string })
 }
 
 
-let youtubeIframeApiPromise: Promise<any> | null = null;
-
-function extractYouTubeVideoId(url?: string) {
-  if (!url) return null;
-
-  try {
-    const parsed = new URL(url, window.location.origin);
-
-    if (parsed.hostname.includes('youtu.be')) {
-      return parsed.pathname.split('/').filter(Boolean)[0] ?? null;
-    }
-
-    const embedMatch = parsed.pathname.match(/\/embed\/([^/?]+)/);
-    if (embedMatch?.[1]) return embedMatch[1];
-
-    return parsed.searchParams.get('v');
-  } catch {
-    const match = url.match(/(?:embed\/|v=|youtu\.be\/)([A-Za-z0-9_-]{6,})/);
-    return match?.[1] ?? null;
-  }
-}
-
-function loadYouTubeIframeApi() {
-  const currentYT = (window as any).YT;
-  if (currentYT?.Player) {
-    return Promise.resolve(currentYT);
-  }
-
-  if (youtubeIframeApiPromise) {
-    return youtubeIframeApiPromise;
-  }
-
-  youtubeIframeApiPromise = new Promise((resolve, reject) => {
-    const previousReady = (window as any).onYouTubeIframeAPIReady;
-
-    (window as any).onYouTubeIframeAPIReady = () => {
-      if (typeof previousReady === 'function') {
-        previousReady();
-      }
-      resolve((window as any).YT);
-    };
-
-    if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
-      const script = document.createElement('script');
-      script.src = 'https://www.youtube.com/iframe_api';
-      script.async = true;
-      script.onerror = () => reject(new Error('YouTube player API could not be loaded.'));
-      document.head.appendChild(script);
-    }
-  });
-
-  return youtubeIframeApiPromise;
-}
-
 function HomePage({
   selectedMood,
   selectedPlaylist,
@@ -1251,20 +1091,24 @@ function HomePage({
   const [activeRoomName, setActiveRoomName] = useState('Mood mix');
 
   const playerContainerRef = useRef<HTMLDivElement | null>(null);
-  const youtubePlayerRef = useRef<any>(null);
+  const mediaPlayerRef = useRef<MediaPlayer | null>(null);
   const playerReadyRef = useRef(false);
-  const pendingVideoRef = useRef<{ videoId: string; autoplay: boolean } | null>(null);
   const currentTrackRef = useRef<Track | null>(null);
   const playerTracksRef = useRef<Track[]>([]);
   const trackIndexRef = useRef(0);
   const shuffleEnabledRef = useRef(false);
   const isPlayingRef = useRef(false);
+  const playerErrorHandlerRef = useRef<(message: string, source: PlaybackSource) => void>(() => {});
+  const playerNoticeRef = useRef(setNotice);
+  playerNoticeRef.current = setNotice;
   const playerStateHandlerRef = useRef<(state: number) => void>(() => {});
   const advanceTrackRef = useRef<(direction: 1 | -1, automatic?: boolean) => void>(() => {});
   const playHistoryRef = useRef<number[]>([]);
-  const failedVideoIdsRef = useRef<Set<string>>(new Set());
+  const failedSourceKeysRef = useRef<Set<string>>(new Set());
 
   const historyIdRef = useRef<number | null>(null);
+  const historySessionRef = useRef(0);
+  const persistOnUnmountRef = useRef<() => void>(() => {});
   const historySongIdRef = useRef<number | null>(null);
   const historyCreatePromiseRef = useRef<Promise<number | null> | null>(null);
   const lastPersistedSecondRef = useRef(0);
@@ -1335,7 +1179,7 @@ function HomePage({
 
   const readPlayerTime = () => {
     try {
-      const value = Number(youtubePlayerRef.current?.getCurrentTime?.() ?? 0);
+      const value = Number(mediaPlayerRef.current?.getCurrentTime?.() ?? 0);
       return Number.isFinite(value) && value >= 0 ? value : 0;
     } catch {
       return 0;
@@ -1344,7 +1188,7 @@ function HomePage({
 
   const readPlayerDuration = () => {
     try {
-      const value = Number(youtubePlayerRef.current?.getDuration?.() ?? 0);
+      const value = Number(mediaPlayerRef.current?.getDuration?.() ?? 0);
       return Number.isFinite(value) && value > 0
         ? value
         : parseDuration(currentTrackRef.current?.duration ?? current.duration);
@@ -1357,6 +1201,7 @@ function HomePage({
     if (!track.id || !Number.isFinite(userId)) return;
 
     if (historySongIdRef.current !== track.id) {
+      historySessionRef.current++;
       historySongIdRef.current = track.id;
       historyIdRef.current = null;
       historyCreatePromiseRef.current = null;
@@ -1378,6 +1223,7 @@ function HomePage({
     }
 
     beginListeningSession(track);
+    const session = historySessionRef.current;
 
     try {
       let historyId = historyIdRef.current;
@@ -1404,6 +1250,7 @@ function HomePage({
 
             if (
               historySongIdRef.current === songId &&
+              historySessionRef.current === session &&
               Number.isFinite(createdId) &&
               createdId > 0
             ) {
@@ -1417,6 +1264,7 @@ function HomePage({
         }
 
         historyId = await historyCreatePromiseRef.current;
+        if (historySessionRef.current !== session) return;
         historyCreatePromiseRef.current = null;
 
         // The POST already carried the latest progress/state.
@@ -1436,9 +1284,9 @@ function HomePage({
         }
       );
 
-      lastPersistedSecondRef.current = progressSeconds;
+      if (historySessionRef.current === session) lastPersistedSecondRef.current = progressSeconds;
     } catch (error) {
-      historyCreatePromiseRef.current = null;
+      if (historySessionRef.current === session) historyCreatePromiseRef.current = null;
       console.error('Failed to persist listening history:', error);
     }
   };
@@ -1448,56 +1296,50 @@ function HomePage({
     skipped = false
   ) => {
     const songId = historySongIdRef.current;
-
     if (!songId) return;
 
-    await persistListeningProgress(completed, skipped);
+    const historyId = historyIdRef.current;
+    const pendingCreate = historyCreatePromiseRef.current;
+    historySessionRef.current++;
+    const progressSeconds = Math.max(0, Math.floor(readPlayerTime()));
+    historyIdRef.current = null;
+    historySongIdRef.current = null;
+    historyCreatePromiseRef.current = null;
+    lastPersistedSecondRef.current = 0;
 
-    if (historySongIdRef.current === songId) {
-      historyIdRef.current = null;
-      historySongIdRef.current = null;
-      historyCreatePromiseRef.current = null;
-      lastPersistedSecondRef.current = 0;
+    try {
+      const resolvedId = historyId ?? await pendingCreate;
+      await apiRequest(
+        resolvedId
+          ? `/users/${userId}/listening-history/${resolvedId}`
+          : `/users/${userId}/listening-history`,
+        {
+          method: resolvedId ? 'PUT' : 'POST',
+          body: JSON.stringify({ song_id: songId, progress_seconds: progressSeconds, completed, skipped }),
+        }
+      );
+    } catch (error) {
+      console.error('Failed to finish listening history:', error);
     }
   };
 
-  const loadTrackIntoPlayer = (
-    track: Track,
-    autoplay = true
-  ) => {
-    const videoId = extractYouTubeVideoId(track.audioUrl);
-
-    if (!videoId) {
-      setNotice(`"${track.title}" does not have a valid YouTube playback URL.`);
+  const loadTrackIntoPlayer = (track: Track, autoplay = true) => {
+    const source = resolvePlaybackSource(track.audioUrl);
+    if (!source || !mediaPlayerRef.current) {
+      setNotice(`"${track.title}" does not have an accessible playback URL.`);
       return false;
     }
 
+    failedSourceKeysRef.current.delete(source.key);
     currentTrackRef.current = track;
     setPlayerStarted(true);
     setSeekPreviewSeconds(null);
     setCurrentSeconds(0);
     setDurationSeconds(parseDuration(track.duration));
-
-    const player = youtubePlayerRef.current;
-
-    if (playerReadyRef.current && player) {
-      try {
-        player.setVolume?.(volume);
-        if (isMuted) player.mute?.();
-        else player.unMute?.();
-
-        if (autoplay) {
-          player.loadVideoById?.(videoId);
-        } else {
-          player.cueVideoById?.(videoId);
-        }
-      } catch (error) {
-        console.error('Failed to load YouTube track:', error);
-      }
-    } else {
-      pendingVideoRef.current = { videoId, autoplay };
-    }
-
+    mediaPlayerRef.current.setVolume(volume);
+    if (isMuted) mediaPlayerRef.current.mute();
+    else mediaPlayerRef.current.unMute();
+    mediaPlayerRef.current.loadSource(source, autoplay);
     return true;
   };
 
@@ -1564,8 +1406,8 @@ function HomePage({
     const playableIndexes = queue
       .map((track, index) => ({ track, index }))
       .filter(({ track }) => {
-        const videoId = extractYouTubeVideoId(track.audioUrl);
-        return Boolean(videoId && !failedVideoIdsRef.current.has(videoId));
+        const source = resolvePlaybackSource(track.audioUrl);
+        return Boolean(source && !failedSourceKeysRef.current.has(source.key));
       })
       .map(({ index }) => index);
 
@@ -1612,7 +1454,7 @@ function HomePage({
 
     const track = queue[index];
 
-    if (!track || !extractYouTubeVideoId(track.audioUrl)) {
+    if (!track || !resolvePlaybackSource(track.audioUrl)) {
       setNotice(
         track
           ? `"${track.title}" is not playable right now.`
@@ -1626,10 +1468,8 @@ function HomePage({
     const hadProgress = readPlayerTime() > 0;
 
     if (historySongIdRef.current) {
-      await finishListeningSession(
-        false,
-        Boolean(markCurrentSkipped && hadProgress)
-      );
+      // Keep play() in the click gesture; history writes must never delay music.
+      void finishListeningSession(false, Boolean(markCurrentSkipped && hadProgress));
     }
 
     if (
@@ -1645,6 +1485,7 @@ function HomePage({
     }
 
     if (queueOverride && queueOverride.length > 0) {
+      if (queueOverride !== playerTracksRef.current) playHistoryRef.current = [];
       setActiveQueue(queueOverride);
       setActiveMoodName(moodOverride ?? track.mood);
       setActiveRoomName(
@@ -1669,7 +1510,7 @@ function HomePage({
     }
 
     const firstPlayable = viewedTracks.findIndex(
-      (track) => Boolean(extractYouTubeVideoId(track.audioUrl))
+      (track) => Boolean(resolvePlaybackSource(track.audioUrl))
     );
 
     if (firstPlayable === -1) {
@@ -1694,7 +1535,8 @@ function HomePage({
 
     if (direction === -1 && playHistoryRef.current.length > 0) {
       const previousIndex = playHistoryRef.current.pop();
-      if (previousIndex != null && queue[previousIndex]) {
+      const previousSource = previousIndex != null ? resolvePlaybackSource(queue[previousIndex]?.audioUrl) : null;
+      if (previousIndex != null && previousSource && !failedSourceKeysRef.current.has(previousSource.key)) {
         void switchToTrack(
           previousIndex,
           !automatic,
@@ -1754,7 +1596,7 @@ function HomePage({
     if (
       !playerStarted ||
       !playerReadyRef.current ||
-      !youtubePlayerRef.current ||
+      !mediaPlayerRef.current ||
       totalSeconds <= 0
     ) {
       return;
@@ -1769,13 +1611,13 @@ function HomePage({
     setCurrentSeconds(target);
 
     try {
-      youtubePlayerRef.current.seekTo?.(target, true);
+      mediaPlayerRef.current.seekTo(target);
     } catch (error) {
       console.error('Could not seek player:', error);
       setNotice('The player could not seek to that position.');
     }
 
-    // Let the real YouTube time take over again after the seek settles.
+    // Let the media clock take over again after the seek settles.
     window.setTimeout(() => {
       setSeekPreviewSeconds(null);
     }, 250);
@@ -1786,10 +1628,10 @@ function HomePage({
     setVolume(normalized);
 
     try {
-      youtubePlayerRef.current?.setVolume?.(normalized);
+      mediaPlayerRef.current?.setVolume?.(normalized);
 
       if (normalized > 0 && isMuted) {
-        youtubePlayerRef.current?.unMute?.();
+        mediaPlayerRef.current?.unMute?.();
         setIsMuted(false);
       }
     } catch (error) {
@@ -1800,11 +1642,11 @@ function HomePage({
   const toggleMute = () => {
     try {
       if (isMuted) {
-        youtubePlayerRef.current?.unMute?.();
-        youtubePlayerRef.current?.setVolume?.(volume);
+        mediaPlayerRef.current?.unMute?.();
+        mediaPlayerRef.current?.setVolume?.(volume);
         setIsMuted(false);
       } else {
-        youtubePlayerRef.current?.mute?.();
+        mediaPlayerRef.current?.mute?.();
         setIsMuted(true);
       }
     } catch (error) {
@@ -1837,16 +1679,12 @@ function HomePage({
       return;
     }
 
-    const player = youtubePlayerRef.current;
+    const player = mediaPlayerRef.current;
 
-    if (!playerReadyRef.current || !player) {
-      const videoId = extractYouTubeVideoId(
-        currentTrackRef.current?.audioUrl ?? current.audioUrl
-      );
-
-      if (videoId) {
-        pendingVideoRef.current = { videoId, autoplay: true };
-      }
+    if (!player) return;
+    const source = resolvePlaybackSource(currentTrackRef.current?.audioUrl);
+    if (source && failedSourceKeysRef.current.has(source.key)) {
+      loadTrackIntoPlayer(currentTrackRef.current ?? current, true);
       return;
     }
 
@@ -1937,7 +1775,7 @@ function HomePage({
     }
 
     const requestedIndex = viewedTracks.findIndex(
-      (track) => Boolean(extractYouTubeVideoId(track.audioUrl))
+      (track) => Boolean(resolvePlaybackSource(track.audioUrl))
     );
 
     if (requestedIndex >= 0) {
@@ -1965,11 +1803,8 @@ function HomePage({
       setIsPlaying(true);
       isPlayingRef.current = true;
       const track = currentTrackRef.current;
-      const videoId = extractYouTubeVideoId(track?.audioUrl);
-
-      if (videoId) {
-        failedVideoIdsRef.current.delete(videoId);
-      }
+      const source = resolvePlaybackSource(track?.audioUrl);
+      if (source) failedSourceKeysRef.current.delete(source.key);
 
       if (track) beginListeningSession(track);
       return;
@@ -1986,136 +1821,47 @@ function HomePage({
       setIsPlaying(false);
       isPlayingRef.current = false;
 
-      void (async () => {
-        await finishListeningSession(true, false);
-        advanceTrackRef.current(1, true);
-      })();
+      void finishListeningSession(true, false);
+      advanceTrackRef.current(1, true);
     }
   };
 
+  playerErrorHandlerRef.current = (message, source) => {
+    const activeSource = resolvePlaybackSource(currentTrackRef.current?.audioUrl);
+    if (source.key !== activeSource?.key || failedSourceKeysRef.current.has(source.key)) return;
+    failedSourceKeysRef.current.add(source.key);
+    setIsPlaying(false);
+    isPlayingRef.current = false;
+    const nextIndex = findPlayableTrack(1);
+    if (nextIndex < 0) {
+      setNotice(message);
+      return;
+    }
+    setNotice(`${message} Trying the next track.`);
+    void switchToTrack(nextIndex, false, undefined, undefined, undefined, false);
+  };
+
+  persistOnUnmountRef.current = () => {
+    if (historySongIdRef.current) void finishListeningSession(false, false);
+  };
+
   useEffect(() => {
-    let cancelled = false;
-    let createdPlayer: any = null;
-
-    void loadYouTubeIframeApi()
-      .then((YT) => {
-        if (cancelled || !playerContainerRef.current) return;
-
-        playerContainerRef.current.innerHTML = '';
-        const mount = document.createElement('div');
-        playerContainerRef.current.appendChild(mount);
-
-        createdPlayer = new YT.Player(mount, {
-          height: '200',
-          width: '200',
-          playerVars: {
-            autoplay: 0,
-            controls: 0,
-            disablekb: 1,
-            enablejsapi: 1,
-            playsinline: 1,
-            rel: 0,
-            origin: window.location.origin,
-          },
-          events: {
-            onReady: (event: any) => {
-              if (cancelled) return;
-
-              youtubePlayerRef.current = event.target;
-              playerReadyRef.current = true;
-              setPlayerReady(true);
-
-              try {
-                event.target.setVolume?.(volume);
-                if (isMuted) event.target.mute?.();
-              } catch {
-                // Player is ready enough for playback even if volume setup fails.
-              }
-
-              const pending = pendingVideoRef.current;
-              if (pending) {
-                pendingVideoRef.current = null;
-
-                if (pending.autoplay) {
-                  event.target.loadVideoById?.(pending.videoId);
-                } else {
-                  event.target.cueVideoById?.(pending.videoId);
-                }
-              }
-            },
-            onStateChange: (event: any) => {
-              playerStateHandlerRef.current(event.data);
-            },
-            onError: (event: any) => {
-              setIsPlaying(false);
-              isPlayingRef.current = false;
-
-              const failedTrack = currentTrackRef.current;
-              const failedVideoId = extractYouTubeVideoId(failedTrack?.audioUrl);
-
-              if (failedVideoId) {
-                failedVideoIdsRef.current.add(failedVideoId);
-              }
-
-              console.error('YouTube playback error:', {
-                code: Number(event?.data),
-                title: failedTrack?.title,
-                videoId: failedVideoId,
-              });
-
-              const queue = playerTracksRef.current;
-              const nextIndex = findPlayableTrack(
-                1,
-                queue,
-                trackIndexRef.current
-              );
-
-              if (nextIndex === -1) {
-                setNotice(
-                  'No playable YouTube videos were found in this queue.'
-                );
-                return;
-              }
-
-              setNotice(
-                failedTrack
-                  ? `Skipping unavailable video for "${failedTrack.title}".`
-                  : 'Skipping an unavailable YouTube video.'
-              );
-
-              window.setTimeout(() => {
-                void switchToTrack(
-                  nextIndex,
-                  false,
-                  undefined,
-                  undefined,
-                  undefined,
-                  false
-                );
-              }, 250);
-            },
-          },
-        });
-
-        youtubePlayerRef.current = createdPlayer;
-      })
-      .catch((error) => {
-        console.error('YouTube API failed to load:', error);
-        setNotice('The YouTube player could not be loaded.');
-      });
-
+    if (!playerContainerRef.current) return;
+    const player = new MediaPlayer(playerContainerRef.current, {
+      onReady: (ready) => {
+        playerReadyRef.current = ready;
+        setPlayerReady(ready);
+      },
+      onState: (state) => playerStateHandlerRef.current(state),
+      onUnavailable: (message, source) => playerErrorHandlerRef.current(message, source),
+      onBlocked: (message) => playerNoticeRef.current(message),
+    });
+    mediaPlayerRef.current = player;
     return () => {
-      cancelled = true;
+      persistOnUnmountRef.current();
       playerReadyRef.current = false;
-      setPlayerReady(false);
-
-      try {
-        createdPlayer?.destroy?.();
-      } catch {
-        // Ignore player teardown errors.
-      }
-
-      youtubePlayerRef.current = null;
+      player.destroy();
+      mediaPlayerRef.current = null;
     };
   }, []);
 
@@ -2140,14 +1886,6 @@ function HomePage({
     return () => window.clearInterval(timer);
   }, [playerStarted, userId]);
 
-  useEffect(() => {
-    return () => {
-      if (historySongIdRef.current) {
-        void persistListeningProgress(false, false);
-      }
-    };
-  }, []);
-
   const isCurrentFavorite =
     Boolean(
       current.id &&
@@ -2161,21 +1899,26 @@ function HomePage({
     );
 
   const playerFrame = (
-    <div
-      ref={playerContainerRef}
-      aria-hidden="true"
+    <aside
+      aria-label="YouTube video player"
+      data-testid="youtube-player-panel"
       style={{
-        position: 'fixed',
-        left: '-10000px',
-        top: '-10000px',
-        width: '200px',
-        height: '200px',
-        opacity: 0,
-        pointerEvents: 'none',
-        border: 0,
-        overflow: 'hidden',
+        display: playerStarted && currentVideoId ? 'block' : 'none',
+        position: 'fixed', right: 22, bottom: compact ? 195 : 22,
+        zIndex: 85, width: 'min(360px, calc(100vw - 32px))',
+        background: '#0c0d12', border: `1px solid ${activeMood.color}55`,
+        boxShadow: '0 16px 45px rgba(0,0,0,.4)',
       }}
-    />
+    >
+      <div ref={playerContainerRef} style={{ minHeight: 200 }} />
+      <a
+        href={currentVideoId ? `https://www.youtube.com/watch?v=${currentVideoId}` : undefined}
+        target="_blank" rel="noopener noreferrer"
+        style={{ display: 'block', padding: '8px 12px', fontSize: 11, color: '#c7c7cc' }}
+      >
+        Open {current.title} on YouTube ↗
+      </a>
+    </aside>
   );
 
   if (compact) {
@@ -2647,7 +2390,7 @@ function HomePage({
                   }
                 >
                   <Download size={14} />
-                  {isCurrentDownloaded ? 'Saved offline' : 'Save offline'}
+                  {isCurrentDownloaded ? 'Saved to library' : 'Save to library'}
                 </button>
               ) : (
                 <button
@@ -3340,7 +3083,7 @@ function DownloadsPage({
     return (
       <section className="page">
         <div className="eyebrow animate-rise">
-          Offline library / Premium
+          Saved library / Premium
         </div>
 
         <div
@@ -3397,7 +3140,7 @@ function DownloadsPage({
       <div className="page-heading animate-rise">
         <div>
           <div className="eyebrow">
-            Offline library / Premium
+            Saved library / Premium
           </div>
           <h1>
             Your<br /><em>downloads</em>
@@ -3674,8 +3417,8 @@ function SearchPage({
                       <Download size={13} />
                       {track.id &&
                       downloadedSongIds.has(track.id)
-                        ? 'Saved offline'
-                        : 'Save offline'}
+                        ? 'Saved to library'
+                        : 'Save to library'}
                     </button>
                   ) : (
                     <Link
@@ -3731,797 +3474,95 @@ function SearchPage({
 
 function PremiumPage({
   premiumStatus,
-  onUpgrade,
   onCancel,
+  onMembershipChange,
   isBusy,
 }: {
   premiumStatus: PremiumStatus | null;
-  onUpgrade: (paymentMethod: 'test_success' | 'test_failure') => Promise<boolean>;
   onCancel: () => Promise<void> | void;
+  onMembershipChange: () => Promise<void>;
   isBusy: boolean;
 }) {
   const isPremium = Boolean(premiumStatus?.is_premium);
-  const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [cardholderName, setCardholderName] = useState('');
-  const [cardNumber, setCardNumber] = useState('');
-  const [expiry, setExpiry] = useState('');
-  const [cvv, setCvv] = useState('');
-  const [checkoutMessage, setCheckoutMessage] = useState('');
-
-  const premiumFeatures = [
-    { label: 'Unlimited custom themes', icon: Palette },
-    { label: 'Offline downloadable tracks', icon: Download },
-    { label: 'Priority playlist curation', icon: Sparkles },
+  const checkingPlan = premiumStatus === null;
+  const plans = [
+    {
+      name: 'Free',
+      icon: Music2,
+      description: 'A soundtrack for every kind of day.',
+      features: ['Explore music by mood', 'Create and restore your playlists', 'Keep your favorites close'],
+      active: !checkingPlan && !isPremium,
+    },
+    {
+      name: 'Premium',
+      icon: Crown,
+      description: 'More ways to make MOOSIC yours.',
+      features: ['Everything in Free', 'Custom colors for your listening room', 'A saved-track library across your devices'],
+      active: isPremium,
+    },
   ];
-
-  const freeFeatures = [
-    { label: 'Basic moods and playlists', available: true },
-    { label: 'Downloaded songs unavailable', available: false },
-    { label: 'Premium themes unavailable', available: false },
-  ];
-
-  const resetCheckout = () => {
-    setCardholderName('');
-    setCardNumber('');
-    setExpiry('');
-    setCvv('');
-    setCheckoutMessage('');
-  };
-
-  const closeCheckout = () => {
-    if (isBusy) return;
-    setCheckoutOpen(false);
-    resetCheckout();
-  };
-
-  const formatCardNumber = (value: string) => {
-    const digits = value.replace(/\D/g, '').slice(0, 16);
-    return digits.replace(/(.{4})/g, '$1 ').trim();
-  };
-
-  const formatExpiry = (value: string) => {
-    const digits = value.replace(/\D/g, '').slice(0, 4);
-    if (digits.length <= 2) return digits;
-    return `${digits.slice(0, 2)}/${digits.slice(2)}`;
-  };
-
-  const validateMockCard = () => {
-    const digits = cardNumber.replace(/\D/g, '');
-    const expiryMatch = expiry.match(/^(\d{2})\/(\d{2})$/);
-    const cvvValid = /^\d{3,4}$/.test(cvv);
-
-    if (!cardholderName.trim()) {
-      return 'Enter a cardholder name.';
-    }
-
-    if (digits.length !== 16) {
-      return 'Enter a 16-digit mock card number.';
-    }
-
-    if (!expiryMatch) {
-      return 'Enter expiry in MM/YY format.';
-    }
-
-    const month = Number(expiryMatch[1]);
-    if (month < 1 || month > 12) {
-      return 'Expiry month must be between 01 and 12.';
-    }
-
-    if (!cvvValid) {
-      return 'Enter a 3 or 4 digit CVV.';
-    }
-
-    return '';
-  };
-
-  const completeMockPayment = async () => {
-    const validationError = validateMockCard();
-
-    if (validationError) {
-      setCheckoutMessage(validationError);
-      return;
-    }
-
-    setCheckoutMessage('');
-
-    const success = await onUpgrade('test_success');
-
-    if (success) {
-      setCheckoutOpen(false);
-      resetCheckout();
-    } else {
-      setCheckoutMessage(
-        'The mock payment did not complete. Try again or simulate a failure.'
-      );
-    }
-  };
-
-  const simulateFailure = async () => {
-    setCheckoutMessage('');
-
-    const success = await onUpgrade('test_failure');
-
-    if (!success) {
-      setCheckoutMessage(
-        'Mock payment failed as requested. No real payment was processed.'
-      );
-    }
-  };
 
   return (
-    <>
-      <section
-        className="page"
-        style={{
-          minHeight: 'calc(100vh - 130px)',
-          maxWidth: 1180,
-          margin: '0 auto',
-        }}
-      >
-        <div
-          className="animate-rise"
-          style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            justifyContent: 'space-between',
-            gap: 24,
-            marginTop: 34,
-            marginBottom: 34,
-            flexWrap: 'wrap',
-          }}
-        >
-          <div style={{ maxWidth: 620 }}>
-            <div
-              className="eyebrow"
-              style={{ color: '#f1bc46', marginBottom: 11 }}
-            >
-              MOOSIC PREMIUM / 007
+    <section className="page" style={{ maxWidth: 1060 }}>
+      <div className="animate-rise" style={{ maxWidth: 640 }}>
+        <div className="eyebrow">MOOSIC / YOUR MEMBERSHIP</div>
+        <h1 className="display-title" style={{ fontSize: 'clamp(42px, 6vw, 74px)' }}>
+          Make this room<br /><em>your own.</em>
+        </h1>
+        <p className="muted" style={{ fontSize: 18, lineHeight: 1.5 }}>
+          Your music, your moods, and a little more room for your personality.
+        </p>
+      </div>
+
+      <div className="playlist-choice-grid animate-rise-2" style={{ marginTop: 36 }}>
+        {plans.map(({ name, icon: Icon, description, features, active }) => (
+          <article key={name} style={{
+            padding: 'clamp(22px, 3vw, 34px)',
+            border: `1px solid ${active ? '#f1bc46' : 'rgba(247,239,205,.2)'}`,
+            background: active ? 'rgba(241,188,70,.06)' : 'rgba(247,239,205,.025)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+              <Icon size={25} color="#f1bc46" strokeWidth={1.4} aria-hidden="true" />
+              {active && <span className="eyebrow" style={{ fontSize: 10 }} data-testid="text-current-plan">Your current plan</span>}
             </div>
-
-            <h1
-              className="section-title"
-              style={{
-                fontSize: 'clamp(52px, 6vw, 82px)',
-                lineHeight: .92,
-                margin: 0,
-              }}
-            >
-              Own the <em>room.</em>
-            </h1>
-
-            <p
-              style={{
-                maxWidth: 520,
-                marginTop: 18,
-                color: '#b6b0ba',
-                fontSize: 16,
-                lineHeight: 1.6,
-              }}
-            >
-              Unlock the premium layer of Moosic with better themes,
-              download access, and a cleaner listening experience.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={() =>
-              document
-                .getElementById('premium-plans')
-                ?.scrollIntoView({ behavior: 'smooth' })
-            }
-            className="outline-button"
-            data-testid="button-compare-plans"
-            style={{
-              borderRadius: 999,
-              marginTop: 14,
-            }}
-          >
-            {isPremium ? 'Premium active' : 'Compare plans'}
-          </button>
-        </div>
-
-        <div
-          id="premium-plans"
-          className="animate-rise-2"
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(290px, 1fr))',
-            gap: 22,
-            alignItems: 'stretch',
-          }}
-        >
-          <article
-            style={{
-              position: 'relative',
-              border: '1px solid rgba(241,188,70,.76)',
-              borderRadius: 28,
-              padding: '34px 34px 30px',
-              minHeight: 420,
-              background:
-                'linear-gradient(145deg, rgba(241,188,70,.09), rgba(255,255,255,.025))',
-              boxShadow: isPremium
-                ? '0 0 0 1px rgba(241,188,70,.18), 0 28px 80px rgba(0,0,0,.30)'
-                : '0 25px 70px rgba(0,0,0,.25)',
-            }}
-          >
-            <span
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 7,
-                color: '#f1bc46',
-                fontSize: 10,
-                letterSpacing: '.14em',
-                textTransform: 'uppercase',
-                marginBottom: 18,
-              }}
-            >
-              <Crown size={13} />
-              MOOSIC PREMIUM
-            </span>
-
-            <h2
-              style={{
-                margin: 0,
-                fontSize: 29,
-                color: '#f3eedb',
-              }}
-            >
-              The complete room
-            </h2>
-
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'baseline',
-                gap: 9,
-                marginTop: 16,
-                marginBottom: 9,
-              }}
-            >
-              <strong
-                style={{
-                  fontSize: 49,
-                  lineHeight: 1,
-                  color: '#f3eedb',
-                  fontWeight: 500,
-                }}
-              >
-                Rs 299
-              </strong>
-              <span style={{ color: '#9f9aa4' }}>/mth</span>
-            </div>
-
-            <p
-              style={{
-                color: '#a9a3ad',
-                lineHeight: 1.55,
-                marginBottom: 26,
-              }}
-            >
-              For listeners who want every part of Moosic to feel like theirs.
-            </p>
-
-            <div style={{ display: 'grid', gap: 13 }}>
-              {premiumFeatures.map(({ label, icon: Icon }) => (
-                <div
-                  key={label}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 11,
-                    color: '#e8e1ce',
-                    fontSize: 14,
-                  }}
-                >
-                  <Icon size={16} color="#f1bc46" />
-                  <span>{label}</span>
-                </div>
+            <h2 className="section-title" style={{ margin: '24px 0 12px', fontSize: 40 }}>{name}</h2>
+            <p className="muted" style={{ lineHeight: 1.5, margin: '0 0 28px' }}>{description}</p>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 16 }}>
+              {features.map((feature) => (
+                <li key={feature} style={{ display: 'flex', gap: 11, alignItems: 'flex-start', lineHeight: 1.45 }}>
+                  <Check size={17} color="#f1bc46" style={{ flexShrink: 0, marginTop: 2 }} aria-hidden="true" />
+                  {feature}
+                </li>
               ))}
-            </div>
-
-            {isPremium ? (
-              <div style={{ marginTop: 31 }}>
-                <div
-                  style={{
-                    color: '#f1bc46',
-                    fontSize: 13,
-                    marginBottom: 12,
-                  }}
-                >
-                  ✓ Premium is active on this account.
-                </div>
-                <button
-                  className="outline-button"
-                  onClick={() => void onCancel()}
-                  disabled={isBusy}
-                  data-testid="button-cancel-premium"
-                  style={{ width: '100%' }}
-                >
-                  {isBusy ? 'Updating…' : 'Cancel premium'}
-                </button>
-              </div>
-            ) : (
-              <button
-                className="solid-button"
-                onClick={() => {
-                  resetCheckout();
-                  setCheckoutOpen(true);
-                }}
-                disabled={isBusy}
-                data-testid="button-upgrade-premium"
-                style={{
-                  width: '100%',
-                  justifyContent: 'center',
-                  marginTop: 31,
-                  minHeight: 49,
-                  background: '#f2ecd6',
-                  color: '#16121b',
-                }}
-              >
-                Upgrade to premium
-              </button>
-            )}
+            </ul>
           </article>
+        ))}
+      </div>
 
-          <article
-            style={{
-              border: '1px solid rgba(255,255,255,.20)',
-              borderRadius: 28,
-              padding: '34px 34px 30px',
-              minHeight: 420,
-              background: 'rgba(255,255,255,.025)',
-            }}
-          >
-            <span
-              style={{
-                display: 'inline-flex',
-                color: '#f1bc46',
-                fontSize: 10,
-                letterSpacing: '.14em',
-                textTransform: 'uppercase',
-                marginBottom: 18,
-              }}
-            >
-              FREE PLAN
-            </span>
-
-            <h2
-              style={{
-                margin: 0,
-                fontSize: 29,
-                color: '#f3eedb',
-              }}
-            >
-              The essentials
-            </h2>
-
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'baseline',
-                gap: 9,
-                marginTop: 16,
-                marginBottom: 9,
-              }}
-            >
-              <strong
-                style={{
-                  fontSize: 49,
-                  lineHeight: 1,
-                  color: '#f3eedb',
-                  fontWeight: 500,
-                }}
-              >
-                Rs 0
-              </strong>
-              <span style={{ color: '#9f9aa4' }}>/mth</span>
+      <div className="animate-rise-3" style={{ marginTop: 28, paddingTop: 26, borderTop: '1px solid rgba(247,239,205,.14)' }}>
+        {checkingPlan ? (
+          <p className="muted" role="status">Checking your membership…</p>
+        ) : isPremium ? (
+          <>
+            <p style={{ margin: '0 0 18px', lineHeight: 1.5 }}>Your Premium membership is active. Set the mood and explore your saved tracks.</p>
+            {premiumStatus?.expires_at && <p className="muted">Your paid pass ends {new Date(premiumStatus.expires_at).toLocaleDateString()}. It will not renew automatically.</p>}
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              <Link href="/theme" className="solid-button" data-testid="link-premium-themes"><Palette size={16} /> Choose a theme</Link>
+              <Link href="/downloads" className="outline-button" data-testid="link-premium-library"><ListMusic size={16} /> Saved tracks</Link>
             </div>
-
-            <p
-              style={{
-                color: '#a9a3ad',
-                lineHeight: 1.55,
-                marginBottom: 26,
-              }}
-            >
-              A simple starting point for finding the right mood and record.
-            </p>
-
-            <div style={{ display: 'grid', gap: 13 }}>
-              {freeFeatures.map(({ label, available }) => (
-                <div
-                  key={label}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 11,
-                    color: available ? '#e8e1ce' : '#c2bcc5',
-                    fontSize: 14,
-                  }}
-                >
-                  {available ? (
-                    <Check size={16} color="#f1bc46" />
-                  ) : (
-                    <LockKeyhole size={16} color="#c2bcc5" />
-                  )}
-                  <span>{label}</span>
-                </div>
-              ))}
-            </div>
-
-            <button
-              className="outline-button"
-              type="button"
-              disabled
-              style={{
-                width: '100%',
-                justifyContent: 'center',
-                marginTop: 31,
-                minHeight: 49,
-                opacity: 1,
-                color: '#aaa4ae',
-              }}
-            >
-              {isPremium ? 'Previous plan' : 'Current plan'}
-            </button>
-          </article>
-        </div>
-
-        <div
-          className="animate-rise-3"
-          style={{
-            marginTop: 28,
-            paddingTop: 18,
-            borderTop: '1px solid rgba(255,255,255,.12)',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: 20,
-            color: '#8f8994',
-            fontSize: 13,
-            flexWrap: 'wrap',
-          }}
-        >
-          <span>
-            Premium status belongs to your account and follows you after login.
-          </span>
-          <Music2 size={17} color="#f1bc46" />
-        </div>
-      </section>
-
-      {checkoutOpen && !isPremium && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="premium-checkout-title"
-          data-testid="premium-checkout-modal"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              closeCheckout();
-            }
-          }}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 200,
-            background: 'rgba(5, 6, 12, .78)',
-            backdropFilter: 'blur(10px)',
-            display: 'grid',
-            placeItems: 'center',
-            padding: 20,
-          }}
-        >
-          <div
-            style={{
-              width: 'min(690px, 100%)',
-              maxHeight: 'calc(100vh - 40px)',
-              overflowY: 'auto',
-              border: '1px solid rgba(242,236,214,.48)',
-              background:
-                'linear-gradient(145deg, rgba(31,27,45,.98), rgba(15,16,24,.99))',
-              boxShadow: '0 36px 120px rgba(0,0,0,.62)',
-              padding: '34px 38px 32px',
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                justifyContent: 'space-between',
-                gap: 18,
-              }}
-            >
-              <div>
-                <div
-                  className="eyebrow"
-                  style={{
-                    color: '#f1bc46',
-                    marginBottom: 10,
-                  }}
-                >
-                  SECURE CHECKOUT / MOCK PAYMENT
-                </div>
-
-                <h2
-                  id="premium-checkout-title"
-                  style={{
-                    margin: 0,
-                    color: '#f3eedb',
-                    fontSize: 'clamp(32px, 5vw, 46px)',
-                    fontWeight: 500,
-                  }}
-                >
-                  Open the premium room.
-                </h2>
-              </div>
-
-              <button
-                type="button"
-                className="icon-button"
-                onClick={closeCheckout}
-                disabled={isBusy}
-                aria-label="Close checkout"
-                data-testid="button-close-checkout"
-                style={{
-                  width: 47,
-                  height: 47,
-                  minWidth: 47,
-                  borderRadius: 0,
-                }}
-              >
-                <X size={21} />
+            {(premiumStatus?.manual_premium ?? premiumStatus?.source !== 'purchase') && <>
+              <p className="muted" style={{ fontSize: 14, lineHeight: 1.5, margin: '22px 0 12px' }}>You can end administrator-granted Premium access. Any paid pass remains active until its expiry.</p>
+              <button type="button" className="outline-button small-button" onClick={() => void onCancel()} disabled={isBusy} data-testid="button-cancel-premium">
+                {isBusy ? 'Updating…' : 'End granted access'}
               </button>
-            </div>
-
-            <div
-              style={{
-                borderTop: '1px solid rgba(255,255,255,.17)',
-                borderBottom: '1px solid rgba(255,255,255,.17)',
-                padding: '19px 0',
-                margin: '26px 0 23px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: 20,
-                fontSize: 16,
-              }}
-            >
-              <strong style={{ color: '#f3eedb' }}>
-                MOOSIC Premium
-              </strong>
-              <strong style={{ color: '#f1bc46' }}>
-                Rs 299 / month
-              </strong>
-            </div>
-
-            <div style={{ display: 'grid', gap: 17 }}>
-              <label
-                style={{
-                  display: 'grid',
-                  gap: 8,
-                  color: '#eee7d8',
-                  fontSize: 13,
-                  fontWeight: 600,
-                }}
-              >
-                Cardholder name
-                <input
-                  value={cardholderName}
-                  onChange={(event) => {
-                    setCardholderName(event.target.value);
-                    setCheckoutMessage('');
-                  }}
-                  autoComplete="cc-name"
-                  placeholder="Your name"
-                  data-testid="input-checkout-name"
-                  style={{
-                    width: '100%',
-                    boxSizing: 'border-box',
-                    padding: '14px 15px',
-                    minHeight: 52,
-                    border: '1px solid rgba(255,255,255,.28)',
-                    background: 'rgba(255,255,255,.045)',
-                    color: '#f3eedb',
-                    outline: 'none',
-                    font: 'inherit',
-                  }}
-                />
-              </label>
-
-              <label
-                style={{
-                  display: 'grid',
-                  gap: 8,
-                  color: '#eee7d8',
-                  fontSize: 13,
-                  fontWeight: 600,
-                }}
-              >
-                Card number
-                <input
-                  value={cardNumber}
-                  onChange={(event) => {
-                    setCardNumber(formatCardNumber(event.target.value));
-                    setCheckoutMessage('');
-                  }}
-                  inputMode="numeric"
-                  autoComplete="cc-number"
-                  placeholder="4242 4242 4242 4242"
-                  data-testid="input-checkout-card-number"
-                  style={{
-                    width: '100%',
-                    boxSizing: 'border-box',
-                    padding: '14px 15px',
-                    minHeight: 52,
-                    border: '1px solid rgba(255,255,255,.28)',
-                    background: 'rgba(255,255,255,.045)',
-                    color: '#f3eedb',
-                    outline: 'none',
-                    font: 'inherit',
-                    letterSpacing: '.04em',
-                  }}
-                />
-              </label>
-
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: 15,
-                }}
-              >
-                <label
-                  style={{
-                    display: 'grid',
-                    gap: 8,
-                    color: '#eee7d8',
-                    fontSize: 13,
-                    fontWeight: 600,
-                  }}
-                >
-                  Expiry
-                  <input
-                    value={expiry}
-                    onChange={(event) => {
-                      setExpiry(formatExpiry(event.target.value));
-                      setCheckoutMessage('');
-                    }}
-                    inputMode="numeric"
-                    autoComplete="cc-exp"
-                    placeholder="MM/YY"
-                    data-testid="input-checkout-expiry"
-                    style={{
-                      width: '100%',
-                      boxSizing: 'border-box',
-                      padding: '14px 15px',
-                      minHeight: 52,
-                      border: '1px solid rgba(255,255,255,.28)',
-                      background: 'rgba(255,255,255,.045)',
-                      color: '#f3eedb',
-                      outline: 'none',
-                      font: 'inherit',
-                    }}
-                  />
-                </label>
-
-                <label
-                  style={{
-                    display: 'grid',
-                    gap: 8,
-                    color: '#eee7d8',
-                    fontSize: 13,
-                    fontWeight: 600,
-                  }}
-                >
-                  CVV
-                  <input
-                    value={cvv}
-                    onChange={(event) => {
-                      setCvv(
-                        event.target.value
-                          .replace(/\D/g, '')
-                          .slice(0, 4)
-                      );
-                      setCheckoutMessage('');
-                    }}
-                    inputMode="numeric"
-                    autoComplete="cc-csc"
-                    placeholder="123"
-                    data-testid="input-checkout-cvv"
-                    style={{
-                      width: '100%',
-                      boxSizing: 'border-box',
-                      padding: '14px 15px',
-                      minHeight: 52,
-                      border: '1px solid rgba(255,255,255,.28)',
-                      background: 'rgba(255,255,255,.045)',
-                      color: '#f3eedb',
-                      outline: 'none',
-                      font: 'inherit',
-                    }}
-                  />
-                </label>
-              </div>
-
-              {checkoutMessage && (
-                <div
-                  role="alert"
-                  style={{
-                    color: '#f2b3aa',
-                    fontSize: 13,
-                    lineHeight: 1.45,
-                  }}
-                >
-                  {checkoutMessage}
-                </div>
-              )}
-
-              <button
-                type="button"
-                className="solid-button"
-                onClick={() => void completeMockPayment()}
-                disabled={isBusy}
-                data-testid="button-complete-mock-payment"
-                style={{
-                  width: '100%',
-                  justifyContent: 'center',
-                  minHeight: 55,
-                  marginTop: 2,
-                  background: '#f2ecd6',
-                  color: '#17131b',
-                }}
-              >
-                <CreditCard size={16} />
-                {isBusy ? 'Processing mock payment…' : 'Complete mock payment'}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => void simulateFailure()}
-                disabled={isBusy}
-                data-testid="button-simulate-payment-failure"
-                style={{
-                  border: 0,
-                  background: 'transparent',
-                  color: '#d8c9ce',
-                  textDecoration: 'underline',
-                  cursor: isBusy ? 'wait' : 'pointer',
-                  font: 'inherit',
-                  fontSize: 13,
-                  justifySelf: 'center',
-                }}
-              >
-                Simulate payment failure
-              </button>
-
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: 9,
-                  color: '#aaa4ae',
-                  fontSize: 12,
-                  lineHeight: 1.45,
-                  marginTop: 3,
-                }}
-              >
-                <LockKeyhole
-                  size={15}
-                  color="#f1bc46"
-                  style={{ marginTop: 1, flex: '0 0 auto' }}
-                />
-                <span>
-                  This mock checkout records only the sandbox result in the backend.
-                  The card fields are never sent to the server and no real payment is processed.
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+            </>}
+          </>
+        ) : (
+          <PremiumCheckout onMembershipChange={onMembershipChange} />
+        )}
+        <p className="muted" style={{ fontSize: 13, lineHeight: 1.5, marginTop: 22 }}>Saved tracks stay in your MOOSIC account. An internet connection is required for playback.</p>
+      </div>
+    </section>
   );
 }
 
@@ -5493,6 +4534,15 @@ function ManagerPage({ onSignOut }: { onSignOut: () => void }) {
                     </select>
                     <button className="solid-button small-button" onClick={() => void saveSong(song)}>Save</button>
                     <button className="outline-button small-button" onClick={() => setEditingSongId(null)}>Cancel</button>
+                    <div style={{ flexBasis: '100%', minWidth: 0 }}>
+                      <SongAudioEditor songId={song.id} currentUrl={song.audio_url}
+                        onError={setMessage}
+                        onSaved={(updated) => {
+                          setSongs((items) => items.map((item) => item.id === song.id ? { ...item, ...updated } : item));
+                          setMessage(`Audio source updated for ${song.title}.`);
+                        }}
+                      />
+                    </div>
                   </div>
                 ) : (
                   <>
@@ -5601,67 +4651,10 @@ function Router({
 
   useEffect(() => {
     void refreshPremiumStatus();
+    const refreshOnFocus = () => void refreshPremiumStatus();
+    window.addEventListener('focus', refreshOnFocus);
+    return () => window.removeEventListener('focus', refreshOnFocus);
   }, [authUser?.id]);
-
-  const upgradePremium = async (
-    paymentMethod: 'test_success' | 'test_failure'
-  ): Promise<boolean> => {
-    if (premiumBusy) return false;
-
-    setPremiumBusy(true);
-
-    try {
-      const payload = await apiRequest(
-        '/premium/subscribe',
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            plan: 'premium',
-            payment_method: paymentMethod,
-          }),
-        }
-      ) as PremiumStatus & {
-        message?: string;
-        payment_status?: string;
-      };
-
-      const activated =
-        Boolean(payload.is_premium) &&
-        payload.payment_status !== 'failed';
-
-      setPremiumStatus({
-        is_premium: activated,
-        plan: activated
-          ? (payload.plan ?? 'premium')
-          : null,
-        status: activated
-          ? (payload.status ?? 'active')
-          : 'free',
-      });
-
-      if (activated) {
-        setNotice(
-          'Mock payment completed. MOOSIC Premium is now active.'
-        );
-      } else {
-        setNotice(
-          payload.message ??
-          'Mock payment failed. Your account remains on the free plan.'
-        );
-      }
-
-      return activated;
-    } catch (error) {
-      setNotice(
-        error instanceof Error
-          ? error.message
-          : 'Could not process the mock payment.'
-      );
-      return false;
-    } finally {
-      setPremiumBusy(false);
-    }
-  };
 
   const cancelPremium = async () => {
     if (premiumBusy) return;
@@ -5674,21 +4667,8 @@ function Router({
         { method: 'POST' }
       );
 
-      setPremiumStatus({
-        is_premium: false,
-        plan: null,
-        status: 'free',
-      });
-
-      setCustomTheme(null);
-      window.localStorage.removeItem(
-        'moodsic-custom-theme'
-      );
-      setDownloads([]);
-
-      setNotice(
-        'Premium cancelled. Your account is back on the free plan.'
-      );
+      await refreshPremiumStatus();
+      setNotice('Administrator-granted Premium ended. Any paid pass keeps its remaining time.');
     } catch (error) {
       setNotice(
         error instanceof Error
@@ -5869,24 +4849,13 @@ function Router({
 
     const loadData = async () => {
       try {
-        const response = await fetch(
-          `${API_BASE}/songs?limit=200`
-        );
-
-        if (!response.ok) {
-          throw new Error(
-            `Backend returned ${response.status}`
-          );
-        }
-
-        const songs: BackendSong[] =
-          await response.json();
+        const songs = await supabaseApiRequest('/songs?limit=200', {}, false) as BackendSong[];
 
         const backendTracks = songs
           .filter((song) =>
             Boolean(
               song.title &&
-              song.audio_url &&
+              resolvePlaybackSource(song.audio_url) &&
               song.is_playable !== false
             )
           )
@@ -5897,7 +4866,7 @@ function Router({
         }
 
         // Production playlists must be built only from backend tracks that
-        // actually have a YouTube playback URL. The old fallback catalogue was
+        // have a media source. The old fallback catalogue was
         // display-only and contained titles with no audio source.
         const activeCatalog = backendTracks;
 
@@ -5992,7 +4961,9 @@ function Router({
     setLocation('/home');
   };
 
-  const signOut = () => {
+  const signOut = async () => {
+    const { error } = await requireSupabase().auth.signOut({ scope: 'local' });
+    if (error) { setNotice(error.message); return; }
     clearAuthSession();
     setAuthUser(null);
     setAuthMode('login');
@@ -6340,12 +5311,7 @@ function Router({
 
 
   return (
-    <AuthGate
-      authUser={authUser}
-      setAuthUser={setAuthUser}
-      authMode={authMode}
-      setAuthMode={setAuthMode}
-    >
+    <>
       {authUser?.role === 'manager' ? (
         <ManagerPage onSignOut={signOut} />
       ) : (
@@ -6470,8 +5436,8 @@ function Router({
             <Route path="/premium">
               <PremiumPage
                 premiumStatus={premiumStatus}
-                onUpgrade={upgradePremium}
                 onCancel={cancelPremium}
+                onMembershipChange={refreshPremiumStatus}
                 isBusy={premiumBusy}
               />
             </Route>
@@ -6498,7 +5464,7 @@ function Router({
         </ErrorBoundary>
       </Shell>
       )}
-    </AuthGate>
+    </>
   );
 }
 
@@ -6511,12 +5477,15 @@ function App() {
   const [authMode, setAuthMode] = useState<AuthMode>('login');
   return (
     <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
-      <Router
-        authUser={authUser}
-        setAuthUser={setAuthUser}
-        authMode={authMode}
-        setAuthMode={setAuthMode}
-      />
+      <AuthGate authUser={authUser} setAuthUser={setAuthUser} authMode={authMode} setAuthMode={setAuthMode}>
+        <Router
+          key={authUser?.id ?? 'signed-out'}
+          authUser={authUser}
+          setAuthUser={setAuthUser}
+          authMode={authMode}
+          setAuthMode={setAuthMode}
+        />
+      </AuthGate>
     </WouterRouter>
   );
 }

@@ -112,7 +112,7 @@ a { color: inherit; text-decoration: none; }
 .moodsic-app--picker .side-rail { display: none; }
 .brand-lockup { display: flex; align-items: center; gap: 10px; margin: 0 8px 50px; color: var(--app-foreground); }
 .brand-mark {
-  width: 35px; height: 35px; flex: 0 0 35px; overflow: hidden;
+  width: 42px; height: 42px; flex: 0 0 42px; overflow: hidden;
   display: block; border-radius: 50%; border: 1px solid rgba(247,239,205,.58);
   background: #09090e;
 }
@@ -120,6 +120,93 @@ a { color: inherit; text-decoration: none; }
   width: 100%; height: 100%; object-fit: cover;
   transform: scale(1.38); transform-origin: 50% 0%;
   filter: saturate(.75) contrast(1.1);
+}
+.moosic-logo {
+  position: relative;
+  isolation: isolate;
+  overflow: visible;
+  border-color: rgba(201, 164, 229, .58);
+  box-shadow: 0 0 15px rgba(182, 133, 213, .13);
+  animation: moosic-logo-glow 4.8s ease-in-out infinite;
+}
+.moosic-logo__portrait {
+  position: absolute;
+  inset: 2px;
+  overflow: hidden;
+  border-radius: inherit;
+  background: #08080b;
+}
+.moosic-logo .moosic-logo__portrait img {
+  position: absolute;
+  width: 144%;
+  height: 144%;
+  max-width: none;
+  left: -22%;
+  top: -3%;
+  object-fit: cover;
+  object-position: 50% 0%;
+  transform-origin: 50% 44%;
+  filter: saturate(.92) contrast(1.04);
+  animation: moosic-logo-nod 4.8s ease-in-out infinite;
+}
+.moosic-logo__orbit {
+  position: absolute;
+  inset: -4px;
+  border: 1px solid rgba(201, 164, 229, .18);
+  border-top-color: #d8b2ed;
+  border-right-color: rgba(201, 164, 229, .54);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: record-spin 12s linear infinite;
+}
+.moosic-logo__orbit::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  right: 5px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #f7efcd;
+  box-shadow: 0 0 6px #d8b2ed;
+}
+.moosic-logo__note {
+  position: absolute;
+  z-index: 1;
+  width: 9px;
+  height: 12px;
+  color: #d8b2ed;
+  opacity: .7;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 2px #09090e);
+  animation: moosic-logo-note 4.8s ease-in-out infinite;
+}
+.moosic-logo__note--left { left: -6px; bottom: 3px; }
+.moosic-logo__note--right { right: -5px; top: 2px; animation-delay: -2.4s; }
+.brand-lockup:hover .moosic-logo,
+.brand-lockup:focus-visible .moosic-logo,
+.picker-brand:hover .moosic-logo,
+.picker-brand:focus-visible .moosic-logo { border-color: #f1bc46; }
+@keyframes moosic-logo-nod {
+  0%, 100% { transform: translateY(0) rotate(-3deg); }
+  25% { transform: translateY(-1px) rotate(2deg); }
+  50% { transform: translateY(1px) rotate(-2deg); }
+  75% { transform: translateY(-1px) rotate(3deg); }
+}
+@keyframes moosic-logo-glow {
+  0%, 100% { box-shadow: 0 0 12px rgba(182, 133, 213, .1); }
+  50% { box-shadow: 0 0 21px rgba(182, 133, 213, .3); }
+}
+@keyframes moosic-logo-note {
+  0%, 100% { transform: translateY(2px) rotate(-9deg); opacity: .3; }
+  50% { transform: translateY(-4px) rotate(8deg); opacity: .95; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .moosic-logo,
+  .moosic-logo .moosic-logo__portrait img,
+  .moosic-logo__orbit,
+  .moosic-logo__note { animation: none; }
+  .moosic-logo .moosic-logo__portrait img { transform: none; }
 }
 .brand-name { font-size: 22px; letter-spacing: -.03em; line-height: 1; color: var(--app-foreground); }
 .nav-label { color: var(--muted-ink); font-size: 10px; letter-spacing: .19em; text-transform: uppercase; padding: 0 12px; margin: 0 0 10px; }
@@ -154,7 +241,7 @@ a { color: inherit; text-decoration: none; }
   letter-spacing: -.025em;
 }
 .picker-brand .brand-mark {
-  width: 38px; height: 38px; flex-basis: 38px;
+  width: 44px; height: 44px; flex-basis: 44px;
   border-color: rgba(247,239,205,.6);
 }
 .picker-nav {
@@ -742,7 +829,7 @@ a { color: inherit; text-decoration: none; }
   opacity: .92;
 }
 .auth-panel {
-  width: min(760px, 50vw);
+  width: min(860px, calc(100vw - 48px));
   min-height: 420px;
   display: grid;
   grid-template-columns: minmax(190px, .95fr) minmax(250px, 1.05fr);
@@ -799,13 +886,25 @@ a { color: inherit; text-decoration: none; }
   cursor: pointer;
 }
 .auth-back:disabled { visibility: hidden; }
-.auth-heading span {
+.auth-heading > span {
   display: block;
   font-size: 16px;
-  margin-bottom: 8px;
+  margin-bottom: 15px;
 }
+.auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 17px;
+  margin-bottom: 27px;
+}
+.auth-brand .moosic-logo {
+  width: 60px;
+  height: 60px;
+  flex-basis: 60px;
+}
+.auth-brand .moosic-logo__note { color: #a775c2; }
 .auth-heading h1 {
-  margin: 0 0 27px;
+  margin: 0;
   font-size: clamp(33px, 4vw, 54px);
   font-weight: 400;
   line-height: .95;
@@ -870,7 +969,7 @@ a { color: inherit; text-decoration: none; }
   .picker-topbar { min-height: 64px; grid-template-columns: 1fr auto; padding: 14px 18px; }
   .picker-nav { display: none; }
   .picker-brand { font-size: 18px; }
-  .picker-brand .brand-mark { width: 32px; height: 32px; flex-basis: 32px; }
+  .picker-brand .brand-mark { width: 38px; height: 38px; flex-basis: 38px; }
   .mobile-nav { position: fixed; display: grid; grid-template-columns: repeat(6, 1fr); z-index: 30; bottom: 0; left: 0; right: 0; padding: 8px 7px max(8px, env(safe-area-inset-bottom)); background: rgba(9,10,18,.95); border-top: 1px solid rgba(247,239,205,.15); }
   .mobile-nav a { display: grid; place-items: center; gap: 3px; color: #8b8790; font-size: 10px; }
   .mobile-nav a.active { color: #f1bc46; }

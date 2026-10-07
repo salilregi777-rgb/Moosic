@@ -16,9 +16,16 @@ venv/
 
 # Frontend
 node_modules/
+.pnpm-store/
 dist/
 .vite/
+.vercel/
 *.tsbuildinfo
+
+# Supabase
+supabase/.temp/
+supabase/.branches/
+.moosic-import-checkpoint.json
 
 # Logs
 *.log

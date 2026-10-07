@@ -1,0 +1,7 @@
+{
+  "name": "moosic-supabase-tests",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node validate.mjs && node --experimental-strip-types --test billing.test.ts && python3 test_import.py" },
+  "devDependencies": { "@electric-sql/pglite": "0.3.14" }
+}
