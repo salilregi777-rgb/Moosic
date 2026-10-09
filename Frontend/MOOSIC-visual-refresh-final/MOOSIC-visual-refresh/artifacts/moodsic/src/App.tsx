@@ -1085,8 +1085,8 @@ function HomePage({
   const viewedMood = moodFor(selectedMood);
 
   const viewedTracksRaw = selectedPlaylist
-    ? tracks.filter((track) =>
-        selectedPlaylist.trackTitles.includes(track.title)
+    ? selectedPlaylist.trackTitles.flatMap((title) =>
+        tracks.filter((track) => track.title === title)
       )
     : tracks.filter((track) => track.mood === selectedMood);
 
@@ -2498,7 +2498,7 @@ function HomePage({
 
 function PlaylistCover({ playlist, tracks }: { playlist: Playlist; tracks: Track[] }) {
   const mood = moodFor(playlist.mood);
-  const firstTrack = tracks.find(track => playlist.trackTitles.includes(track.title));
+  const firstTrack = tracks.find(track => track.title === playlist.trackTitles[0]);
   return <div className="cover-art" style={moodStyle(mood)}>{firstTrack ? <SongArtwork track={firstTrack} className="playlist-artwork" /> : <img src={mood.art} alt={`${playlist.mood} playlist artwork`} className="playlist-mood-art" />}<span className="cover-label">{playlist.mood}</span></div>;
 }
 
