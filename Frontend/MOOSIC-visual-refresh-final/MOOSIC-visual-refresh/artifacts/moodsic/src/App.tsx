@@ -1,7 +1,10 @@
 import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Home as HomeIcon, ListMusic, Music2, Pause, Play, RotateCcw, Search, SkipBack, SkipForward, UserRound, X, Disc3, Pencil, Trash2, ArrowLeft, Shuffle, Volume2, VolumeX, Plus, Sparkles, Check, WandSparkles, Palette, LogOut, ArrowRight, Heart, Crown, LockKeyhole, Download, CreditCard } from 'lucide-react';
 import { Link, Route, Router as WouterRouter, Switch, useLocation } from 'wouter';
+import { flushSync } from 'react-dom';
 import { SongArtwork, artworkSources } from '@/components/song-artwork';
+import { MoodGalleryHome, MoodPlaylistPage, type PlaybackView, type GalleryPlayerControls, type MoodEdition } from '@/components/mood-experience';
+import { MOOD_ORDER, moodFromSlug } from '@/lib/mood-navigation';
 import { MoodDiscCarousel } from '@/components/mood-disc-carousel';
 import { ThemeAtmosphere } from '@/components/theme-atmosphere';
 import { themePalette, moodThemes, resolveRoomTheme } from '@/lib/themes';
@@ -51,6 +54,7 @@ type BackendSong = {
   artist?: { name?: string | null } | null;
 };
 type Playlist = {
+  requestedTrackTitle?: string;
   id: string;
   name: string;
   mood: MoodName;
@@ -902,10 +906,10 @@ function Navigation({ mobile = false, authUser }: { mobile?: boolean; authUser?:
 
 export function Shell({ children, authUser, appBackground, isPremium }: { children: ReactNode; authUser: AuthUser; appBackground?: string; isPremium: boolean }) {
   const [location] = useLocation();
-  const isPicker = location === '/';
+  const isPicker = location === '/' || location.startsWith('/mood/');
   const roomTheme = resolveRoomTheme(appBackground);
   return (
-    <div className={`moodsic-app ${isPicker ? 'moodsic-app--picker' : ''}`} style={{ '--app-background': roomTheme.background, '--app-foreground': '#d7d2c9', '--app-accent': roomTheme.accent, '--muted-ink': '#a6a1ad' } as CSSProperties}>
+    <div className={`moodsic-app ${isPicker ? 'moodsic-app--picker moodsic-app--gallery' : ''}`} style={{ '--app-background': roomTheme.background, '--app-foreground': '#d7d2c9', '--app-accent': roomTheme.accent, '--muted-ink': '#a6a1ad' } as CSSProperties}>
       <ThemeAtmosphere theme={roomTheme} />
       <div className="shell-grid">
         <aside className={`side-rail ${isPicker ? 'picker-hidden-rail' : ''}`}>
@@ -921,11 +925,11 @@ export function Shell({ children, authUser, appBackground, isPremium }: { childr
                 <span>MOOSIC</span>
               </Link>
               <nav className="picker-nav" aria-label="MOOSIC navigation">
-                <Link href="/" className="picker-nav-active">Home</Link>
-                <Link href="/playlists">My playlists</Link>
-                <Link href="/search">Search</Link>
-                <Link href="/premium">Premium</Link>
+                <Link href="/" className="picker-nav-active">Moosic</Link>
+                <Link href="/search">Discover</Link>
+                <Link href="/playlists">Your library</Link>
               </nav>
+              <Link href="/search" className="gallery-search">Search</Link>
               <Link href="/profile" className="picker-profile" title={`@${authUser.username}`} data-testid="link-picker-profile">{avatarInitial(authUser)}</Link>
             </header>
           ) : (
@@ -1029,6 +1033,8 @@ function HomePage({
   isPremium,
   downloadedSongIds,
   onDownload,
+  onPlaybackView,
+  galleryControls,
 }: {
   selectedMood: MoodName;
   selectedPlaylist: Playlist | null;
@@ -1039,6 +1045,8 @@ function HomePage({
   isPremium: boolean;
   downloadedSongIds: Set<number>;
   onDownload: (track: Track) => Promise<void> | void;
+  onPlaybackView: (view: PlaybackView) => void;
+  galleryControls: { current: GalleryPlayerControls | null };
 }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [trackIndex, setTrackIndex] = useState(0);
@@ -1112,6 +1120,10 @@ function HomePage({
     playerTracks.length > 0
       ? playerTracks[safeTrackIndex]
       : tracks[0] ?? fallbackTracks[0];
+
+  useEffect(() => {
+    onPlaybackView({ trackId: playerStarted ? current.id : undefined, mood: playerStarted ? activeMoodName : undefined, playing: isPlaying, likedIds: likedSongIds });
+  }, [current.id, activeMoodName, isPlaying, likedSongIds, playerStarted, onPlaybackView]);
 
   useEffect(() => {
     if (!playerStarted || !('mediaSession' in navigator) || !('MediaMetadata' in window)) return;
@@ -1670,9 +1682,9 @@ function HomePage({
     }
   };
 
-  const toggleFavorite = async () => {
+  const toggleFavorite = async (favoriteTrack: Track = current) => {
     if (
-      !current.id ||
+      !favoriteTrack.id ||
       !Number.isFinite(userId)
     ) {
       setNotice(
@@ -1682,12 +1694,12 @@ function HomePage({
     }
 
     const isFavorite =
-      likedSongIds.has(current.id);
+      likedSongIds.has(favoriteTrack.id);
 
     try {
       if (isFavorite) {
         await apiRequest(
-          `/users/${userId}/liked-songs/${current.id}`,
+          `/users/${userId}/liked-songs/${favoriteTrack.id}`,
           { method: 'DELETE' }
         );
       } else {
@@ -1696,7 +1708,7 @@ function HomePage({
           {
             method: 'POST',
             body: JSON.stringify({
-              song_id: current.id,
+              song_id: favoriteTrack.id,
             }),
           }
         );
@@ -1709,11 +1721,11 @@ function HomePage({
 
           if (isFavorite) {
             next.delete(
-              current.id as number
+              favoriteTrack.id as number
             );
           } else {
             next.add(
-              current.id as number
+              favoriteTrack.id as number
             );
           }
 
@@ -1723,8 +1735,8 @@ function HomePage({
 
       setNotice(
         isFavorite
-          ? `${current.title} removed from favorites.`
-          : `${current.title} added to favorites.`
+          ? `${favoriteTrack.title} removed from favorites.`
+          : `${favoriteTrack.title} added to favorites.`
       );
     } catch (error) {
       setNotice(
@@ -1735,17 +1747,19 @@ function HomePage({
     }
   };
 
-  // Search explicitly creates a single-track playback request.
+  galleryControls.current = { toggle: togglePlayback, favorite: (track) => { void toggleFavorite(track); } };
+
+  // Search and the showcase Play button explicitly request playback; browsing does not.
   useEffect(() => {
     if (
-      !selectedPlaylist?.id.startsWith('single-') ||
+      !(selectedPlaylist?.id.startsWith('single-') || selectedPlaylist?.id.startsWith('play-')) ||
       viewedTracks.length === 0
     ) {
       return;
     }
 
     const requestedIndex = viewedTracks.findIndex(
-      (track) => Boolean(resolvePlaybackSource(track.audioUrl))
+      (track) => Boolean(resolvePlaybackSource(track.audioUrl)) && (!selectedPlaylist.requestedTrackTitle || track.title === selectedPlaylist.requestedTrackTitle)
     );
 
     if (requestedIndex >= 0) {
@@ -1863,10 +1877,14 @@ function HomePage({
       downloadedSongIds.has(current.id)
     );
 
+  const visibleYouTube = playerStarted && resolvePlaybackSource(current.audioUrl)?.kind === 'youtube';
   const playerFrame = (
-    <div className="playback-engine" aria-hidden="true" inert>
+    <section className={visibleYouTube ? 'source-player-section' : 'source-player-section--empty'} aria-label={visibleYouTube ? 'Song source' : undefined}>
+    <div className={`playback-engine ${visibleYouTube ? 'playback-engine--youtube' : ''}`} aria-hidden={!visibleYouTube} inert={!visibleYouTube} aria-label={visibleYouTube ? 'YouTube playback controls' : undefined}>
       <div ref={playerContainerRef} />
     </div>
+    {visibleYouTube && <div className="source-player-caption"><span>YOUTUBE</span><strong>{current.title}</strong><p>{current.artist}</p></div>}
+    </section>
   );
 
   if (compact) {
@@ -4555,8 +4573,11 @@ function Router({
   const [selectedMood, setSelectedMood] = useState<MoodName>('Neutral');
   const [browsingMood, setBrowsingMood] = useState<MoodName>('Neutral');
   const [selectedPlaylist, setSelectedPlaylist] = useState<Playlist | null>(null);
-  const [catalog, setCatalog] = useState<Track[]>(fallbackTracks);
-  const [library, setLibrary] = useState<Playlist[]>(fallbackPlaylists);
+  const [catalog, setCatalog] = useState<Track[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [playbackView, setPlaybackView] = useState<PlaybackView>({ playing: false, likedIds: new Set() });
+  const galleryControls = useRef<GalleryPlayerControls | null>(null);
+  const [library, setLibrary] = useState<Playlist[]>([]);
   const [deletedPlaylists, setDeletedPlaylists] = useState<Playlist[]>([]);
   const [notice, setNotice] = useState('');
   const [customTheme, setCustomTheme] = useState<string | null>(
@@ -4824,6 +4845,7 @@ function Router({
         const activeCatalog = backendTracks;
 
         setCatalog(activeCatalog);
+        setCatalogLoading(false);
 
         if (Number.isFinite(numericUserId)) {
           const [
@@ -4871,6 +4893,7 @@ function Router({
         );
 
         if (active) {
+          setCatalogLoading(false);
           setNotice(
             error instanceof Error
               ? error.message
@@ -5224,6 +5247,24 @@ function Router({
     }
   };
 
+  const moodTitles: Record<MoodName, string> = { Happy: 'The good days', Sad: 'After the rain', Neutral: 'In between', Angry: 'Let it out', Exhausted: 'Low battery' };
+  const moodColors: Record<MoodName, string> = { Happy: '#d3ae5f', Sad: '#526fbc', Neutral: '#8caa93', Angry: '#c56c4c', Exhausted: '#91a6b1' };
+  const moodEditions: MoodEdition[] = MOOD_ORDER.map(name => ({ name, loading: catalogLoading, art: moodFor(name).art, color: moodColors[name], title: moodTitles[name], description: moodFor(name).description, tracks: catalog.filter(track => track.mood === name) }));
+  const navigateMood = (mood: MoodName) => {
+    const navigate = () => { flushSync(() => setLocation(`/mood/${mood.toLowerCase()}`)); window.scrollTo({ top: 0, behavior: 'instant' }); };
+    // The destination disc keeps its visual identity while the persistent player stays mounted.
+    const transitions = document as Document & { startViewTransition?: (update: () => void) => { finished: Promise<void> } };
+    if (transitions.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      const transition = transitions.startViewTransition(navigate);
+      void transition.finished.catch(() => {});
+    } else navigate();
+  };
+  const playMood = (edition: MoodEdition, track?: Track) => {
+    setSelectedMood(edition.name);
+    setSelectedPlaylist({ id: `play-mood-${edition.name}-${Date.now()}`, name: edition.title, mood: edition.name,
+      count: edition.tracks.length, description: edition.description, trackTitles: edition.tracks.map(item => item.title), requestedTrackTitle: track?.title });
+  };
+
   const downloadedSongIds = new Set(
     downloads.map(
       (download) => download.song_id
@@ -5318,12 +5359,23 @@ function Router({
             isPremium={Boolean(premiumStatus?.is_premium)}
             downloadedSongIds={downloadedSongIds}
             onDownload={downloadTrack}
+            onPlaybackView={setPlaybackView}
+            galleryControls={galleryControls}
           />
 
           <Switch>
             <Route path="/">
-              <MoodPicker selectMood={selectMood} activeMood={browsingMood} previewMood={setBrowsingMood} />
+              <MoodGalleryHome editions={moodEditions} playback={playbackView} onEnter={navigateMood} />
             </Route>
+
+            <Route path="/mood/:slug">{params => {
+              const moodName = moodFromSlug(params.slug);
+              const edition = moodEditions.find(item => item.name === moodName);
+              return edition ? <MoodPlaylistPage key={edition.name} edition={edition} editions={moodEditions} playback={playbackView}
+                onPlay={track => playMood(edition, track)} onToggle={() => galleryControls.current?.toggle()}
+                onFavorite={track => galleryControls.current?.favorite(track)} onNavigate={navigateMood} />
+                : <section className="page"><h1>Mood not found</h1><Link href="/">Explore all moods</Link></section>;
+            }}</Route>
 
             <Route path="/choose-playlist">
               <PlaylistChoicePage
