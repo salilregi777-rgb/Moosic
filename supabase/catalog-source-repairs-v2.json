@@ -1,0 +1,476 @@
+{
+  "reference": "https://github.com/manmeth/MOOSIC",
+  "method": "Reference database compared with official YouTube oEmbed metadata, with incorrectly matched reference videos excluded. Playback is checked separately.",
+  "repairs": [
+    {
+      "id": 1,
+      "title": "Welcome to New York",
+      "artist": "Taylor Swift",
+      "old_source": "https://www.youtube.com/embed/8HW-_VIH3Aw",
+      "new_source": "https://www.youtube.com/embed/FsGdznlfE2U",
+      "metadata_title": "Taylor Swift - Welcome To New York (Taylor's Version) (Lyric Video)",
+      "metadata_author": "Taylor Swift",
+      "evidence_url": "https://www.youtube.com/watch?v=FsGdznlfE2U"
+    },
+    {
+      "id": 2,
+      "title": "Shake It Off",
+      "artist": "Taylor Swift",
+      "old_source": "https://www.youtube.com/embed/nfWlot6h_mw",
+      "new_source": "https://www.youtube.com/embed/nfWlot6h_JM",
+      "metadata_title": "Taylor Swift - Shake It Off",
+      "metadata_author": "Taylor Swift",
+      "evidence_url": "https://www.youtube.com/watch?v=nfWlot6h_JM"
+    },
+    {
+      "id": 3,
+      "title": "Out of the Woods",
+      "artist": "Taylor Swift",
+      "old_source": "https://www.youtube.com/embed/JUAgVmbqIe0",
+      "new_source": "https://www.youtube.com/embed/JLf9q36UsBk",
+      "metadata_title": "Taylor Swift - Out Of The Woods",
+      "metadata_author": "Taylor Swift",
+      "evidence_url": "https://www.youtube.com/watch?v=JLf9q36UsBk"
+    },
+    {
+      "id": 5,
+      "title": "Perfect",
+      "artist": "Ed Sheeran",
+      "old_source": "https://www.youtube.com/embed/2takcxucVgk",
+      "new_source": "https://www.youtube.com/embed/2Vv-BfVoq4g",
+      "metadata_title": "Ed Sheeran - Perfect (Official Music Video)",
+      "metadata_author": "Ed Sheeran",
+      "evidence_url": "https://www.youtube.com/watch?v=2Vv-BfVoq4g"
+    },
+    {
+      "id": 6,
+      "title": "Castle on the Hill",
+      "artist": "Ed Sheeran",
+      "old_source": "https://www.youtube.com/embed/K35bpnksXrQ",
+      "new_source": "https://www.youtube.com/embed/K0ibBPhiaG0",
+      "metadata_title": "Ed Sheeran - Castle On The Hill [Official Music Video]",
+      "metadata_author": "Ed Sheeran",
+      "evidence_url": "https://www.youtube.com/watch?v=K0ibBPhiaG0"
+    },
+    {
+      "id": 9,
+      "title": "Rolling in the Deep",
+      "artist": "Adele",
+      "old_source": "https://www.youtube.com/embed/rvDxyXQ5yP4",
+      "new_source": "https://www.youtube.com/embed/rYEDA3JcQqw",
+      "metadata_title": "Adele - Rolling in the Deep (Official Music Video)",
+      "metadata_author": "Adele",
+      "evidence_url": "https://www.youtube.com/watch?v=rYEDA3JcQqw"
+    },
+    {
+      "id": 10,
+      "title": "Levitating",
+      "artist": "Dua Lipa",
+      "old_source": "https://www.youtube.com/embed/N000qglmmY0",
+      "new_source": "https://www.youtube.com/embed/TUVcZfQe-Kw",
+      "metadata_title": "Dua Lipa - Levitating Featuring DaBaby (Official Music Video)",
+      "metadata_author": "Dua Lipa",
+      "evidence_url": "https://www.youtube.com/watch?v=TUVcZfQe-Kw"
+    },
+    {
+      "id": 11,
+      "title": "Don't Start Now",
+      "artist": "Dua Lipa",
+      "old_source": "https://www.youtube.com/embed/oygrmJFVQkc",
+      "new_source": "https://www.youtube.com/embed/oygrmJFKYZY",
+      "metadata_title": "Dua Lipa - Don't Start Now (Official Music Video)",
+      "metadata_author": "Dua Lipa",
+      "evidence_url": "https://www.youtube.com/watch?v=oygrmJFKYZY"
+    },
+    {
+      "id": 12,
+      "title": "Physical",
+      "artist": "Dua Lipa",
+      "old_source": "https://www.youtube.com/embed/gNlKcRqqoHM",
+      "new_source": "https://www.youtube.com/embed/9HDEHj2yzew",
+      "metadata_title": "Dua Lipa - Physical (Official Video)",
+      "metadata_author": "Dua Lipa",
+      "evidence_url": "https://www.youtube.com/watch?v=9HDEHj2yzew"
+    },
+    {
+      "id": 13,
+      "title": "Tum Hi Ho",
+      "artist": "Arijit Singh",
+      "old_source": "https://www.youtube.com/embed/zHlVP5WYfEU",
+      "new_source": "https://www.youtube.com/embed/Umqb9KENgmk",
+      "metadata_title": "\"Tum Hi Ho\" Aashiqui 2 Full Song With Lyrics | Aditya Roy Kapur, Shraddha Kapoor",
+      "metadata_author": "T-Series",
+      "evidence_url": "https://www.youtube.com/watch?v=Umqb9KENgmk"
+    },
+    {
+      "id": 14,
+      "title": "Chahun Main Ya Naa",
+      "artist": "Arijit Singh",
+      "old_source": "https://www.youtube.com/embed/IYp3X_8N8C0",
+      "new_source": "https://www.youtube.com/embed/jazrixVDB3o",
+      "metadata_title": "Chahun Main Ya Naa (Lyrical) | Aashiqui 2 | Arijit Singh | Aditya K, Shraddha K | Palak M",
+      "metadata_author": "T-Series",
+      "evidence_url": "https://www.youtube.com/watch?v=jazrixVDB3o"
+    },
+    {
+      "id": 15,
+      "title": "Kala Chashma",
+      "artist": "Badshah",
+      "old_source": "https://www.youtube.com/embed/wapXwEjOMfU",
+      "new_source": "https://www.youtube.com/embed/k4yXQkG2s1E",
+      "metadata_title": "\ud835\udc0a\ud835\udc1a\ud835\udc25\ud835\udc1a \ud835\udc02\ud835\udc21\ud835\udc1a\ud835\udc2c\ud835\udc21\ud835\udc26\ud835\udc1a \ud83d\udd76\ufe0f | Baar Baar Dekho | Sidharth M & Katrina Kaif | Badshah, Neha Kakkar, Prem & Hardeep",
+      "metadata_author": "Zee Music Company",
+      "evidence_url": "https://www.youtube.com/watch?v=k4yXQkG2s1E"
+    },
+    {
+      "id": 16,
+      "title": "Genda Phool",
+      "artist": "Badshah",
+      "old_source": "https://www.youtube.com/embed/p-nHDqU7g4E",
+      "new_source": "https://www.youtube.com/embed/SD4Z8dlZPd8",
+      "metadata_title": "Badshah \u2013 Genda Phool | Jacqueline Fernandez | Payal Dev | Hit Anthem of the Year 2021",
+      "metadata_author": "Sony Music India",
+      "evidence_url": "https://www.youtube.com/watch?v=SD4Z8dlZPd8"
+    },
+    {
+      "id": 18,
+      "title": "Waka Waka",
+      "artist": "Shakira",
+      "old_source": "https://www.youtube.com/embed/HaHZRPIavto",
+      "new_source": "https://www.youtube.com/embed/pRpeEdMmmQ0",
+      "metadata_title": "Shakira - Waka Waka (This Time for Africa) (The Official 2010 FIFA World Cup\u2122 Song)",
+      "metadata_author": "shakiraVEVO",
+      "evidence_url": "https://www.youtube.com/watch?v=pRpeEdMmmQ0"
+    },
+    {
+      "id": 22,
+      "title": "Save Your Tears",
+      "artist": "The Weeknd",
+      "old_source": "https://www.youtube.com/embed/XXYlFuWEwEY",
+      "new_source": "https://www.youtube.com/embed/XXYlFuWEuKI",
+      "metadata_title": "The Weeknd - Save Your Tears (Official Music Video)",
+      "metadata_author": "TheWeekndVEVO",
+      "evidence_url": "https://www.youtube.com/watch?v=XXYlFuWEuKI"
+    },
+    {
+      "id": 23,
+      "title": "That's What I Like",
+      "artist": "Bruno Mars",
+      "old_source": "https://www.youtube.com/embed/PIh2xe4jnpg",
+      "new_source": "https://www.youtube.com/embed/PMivT7MJ41M",
+      "metadata_title": "Bruno Mars - That\u2019s What I Like [Official Music Video]",
+      "metadata_author": "Bruno Mars",
+      "evidence_url": "https://www.youtube.com/watch?v=PMivT7MJ41M"
+    },
+    {
+      "id": 24,
+      "title": "24K Magic",
+      "artist": "Bruno Mars",
+      "old_source": "https://www.youtube.com/embed/Ap7y3QfY-x0",
+      "new_source": "https://www.youtube.com/embed/UqyT8IEBkvY",
+      "metadata_title": "Bruno Mars - 24K Magic (Official Music Video)",
+      "metadata_author": "Bruno Mars",
+      "evidence_url": "https://www.youtube.com/watch?v=UqyT8IEBkvY"
+    },
+    {
+      "id": 25,
+      "title": "Treasure",
+      "artist": "Bruno Mars",
+      "old_source": "https://www.youtube.com/embed/nPvuYQrCFqc",
+      "new_source": "https://www.youtube.com/embed/nPvuNsRccVw",
+      "metadata_title": "Bruno Mars - Treasure (Official Music Video)",
+      "metadata_author": "Bruno Mars",
+      "evidence_url": "https://www.youtube.com/watch?v=nPvuNsRccVw"
+    },
+    {
+      "id": 27,
+      "title": "Paris",
+      "artist": "The Chainsmokers",
+      "old_source": "https://www.youtube.com/embed/AmADy7KjLqE",
+      "new_source": "https://www.youtube.com/embed/RhU9MZ98jxo",
+      "metadata_title": "The Chainsmokers - Paris (Official Lyric Video)",
+      "metadata_author": "ChainsmokersVEVO",
+      "evidence_url": "https://www.youtube.com/watch?v=RhU9MZ98jxo"
+    },
+    {
+      "id": 28,
+      "title": "Feels",
+      "artist": "Calvin Harris",
+      "old_source": "https://www.youtube.com/embed/Xo8aV8U7Uu0",
+      "new_source": "https://www.youtube.com/embed/ozv4q2ov3Mk",
+      "metadata_title": "Calvin Harris - Feels (Official Video) ft. Pharrell Williams, Katy Perry, Big Sean",
+      "metadata_author": "CalvinHarrisVEVO",
+      "evidence_url": "https://www.youtube.com/watch?v=ozv4q2ov3Mk"
+    },
+    {
+      "id": 30,
+      "title": "Sunny Sunny",
+      "artist": "Neha Kakkar",
+      "old_source": "https://www.youtube.com/embed/MXJCnccDLA0",
+      "new_source": "https://www.youtube.com/embed/0pvxhVRaIgk",
+      "metadata_title": "Sunny Sunny - Video Song | Yo Yo Honey Singh,Neha Kakkar |Yaariyan | Himansh Kohli,Rakul Preet Singh",
+      "metadata_author": "T-Series Bollywood Classics",
+      "evidence_url": "https://www.youtube.com/watch?v=0pvxhVRaIgk"
+    },
+    {
+      "id": 31,
+      "title": "Manali Trance",
+      "artist": "Neha Kakkar",
+      "old_source": "https://www.youtube.com/embed/6GrtI-9hNBE",
+      "new_source": "https://www.youtube.com/embed/vZ_NpLWuL00",
+      "metadata_title": "Manali Trance | Yo Yo Honey Singh & Neha Kakkar | The Shaukeens | Lisa Haydon | Akshay Kumar",
+      "metadata_author": "Zee Music Company",
+      "evidence_url": "https://www.youtube.com/watch?v=vZ_NpLWuL00"
+    },
+    {
+      "id": 35,
+      "title": "Doorie",
+      "artist": "Atif Aslam",
+      "old_source": "https://www.youtube.com/embed/UW-30b0uCHs",
+      "new_source": "https://www.youtube.com/embed/Jv2Z9KJgYjU",
+      "metadata_title": "Doorie Lyrical Video - Doorie | Atif Aslam | Urvashi Sharrma | Sachin Gupta | Bollywood Songs",
+      "metadata_author": "Tips Official",
+      "evidence_url": "https://www.youtube.com/watch?v=Jv2Z9KJgYjU"
+    },
+    {
+      "id": 36,
+      "title": "Bheegi Bheegi",
+      "artist": "Atif Aslam",
+      "old_source": "https://www.youtube.com/embed/J0mxvBD_Wt8",
+      "new_source": "https://www.youtube.com/embed/NJ4umgxLVyg",
+      "metadata_title": "Bheegi Bheegi Yaadein | Atif Aslam 2020",
+      "metadata_author": "Star music",
+      "evidence_url": "https://www.youtube.com/watch?v=NJ4umgxLVyg"
+    },
+    {
+      "id": 37,
+      "title": "Woh Lamhe",
+      "artist": "Atif Aslam",
+      "old_source": "https://www.youtube.com/embed/FVpz8N6zk-g",
+      "new_source": "https://www.youtube.com/embed/1DBhic8SSKs",
+      "metadata_title": "Woh Lamhe Woh Baatein (Lyrics Video) Atif Aslam | Emraan Hashmi | Zeher (2005) | WorldFamousLyrics",
+      "metadata_author": "WORLD FAMOUS LYRICS",
+      "evidence_url": "https://www.youtube.com/watch?v=1DBhic8SSKs"
+    },
+    {
+      "id": 40,
+      "title": "Mundian To Bach Ke",
+      "artist": "Honey Singh",
+      "old_source": "https://www.youtube.com/embed/WBw_kF_49RM",
+      "new_source": "https://www.youtube.com/embed/x9WO2ieJMYk",
+      "metadata_title": "Panjabi MC - Mundian To Bach Ke (Beware Of The Boys) (Official Video)",
+      "metadata_author": "Altra Moda Music",
+      "evidence_url": "https://www.youtube.com/watch?v=x9WO2ieJMYk",
+      "new_artist": "Panjabi MC",
+      "new_album": "Mundian To Bach Ke"
+    },
+    {
+      "id": 41,
+      "title": "Brown Rang",
+      "artist": "Honey Singh",
+      "old_source": "https://www.youtube.com/embed/2cw6Q_7_vW8",
+      "new_source": "https://www.youtube.com/embed/eizmCZv3aKI",
+      "metadata_title": "Brown Rang | Yo Yo Honey Singh | Full Song | Latest Punjabi Song 2024",
+      "metadata_author": "Speed Records",
+      "evidence_url": "https://www.youtube.com/watch?v=eizmCZv3aKI"
+    },
+    {
+      "id": 43,
+      "title": "Hot N Cold",
+      "artist": "Katy Perry",
+      "old_source": "https://www.youtube.com/embed/F57P9C4SAJ0",
+      "new_source": "https://www.youtube.com/embed/kTHNpusq654",
+      "metadata_title": "Katy Perry - Hot N Cold (Official Music Video)",
+      "metadata_author": "KatyPerryVEVO",
+      "evidence_url": "https://www.youtube.com/watch?v=kTHNpusq654"
+    },
+    {
+      "id": 45,
+      "title": "Paradise",
+      "artist": "Coldplay",
+      "old_source": "https://www.youtube.com/embed/1G4isv7wAtQ",
+      "new_source": "https://www.youtube.com/embed/1G4isv_Fylg",
+      "metadata_title": "Coldplay - Paradise (Official Video)",
+      "metadata_author": "Coldplay",
+      "evidence_url": "https://www.youtube.com/watch?v=1G4isv_Fylg"
+    },
+    {
+      "id": 46,
+      "title": "Work",
+      "artist": "Rihanna",
+      "old_source": "https://www.youtube.com/embed/PlRKoDXWnSE",
+      "new_source": "https://www.youtube.com/embed/HL1UzIK-flA",
+      "metadata_title": "Rihanna - Work (Explicit) ft. Drake",
+      "metadata_author": "RihannaVEVO",
+      "evidence_url": "https://www.youtube.com/watch?v=HL1UzIK-flA"
+    },
+    {
+      "id": 47,
+      "title": "Kiss It Better",
+      "artist": "Rihanna",
+      "old_source": "https://www.youtube.com/embed/lfZ_v-Vvml4",
+      "new_source": "https://www.youtube.com/embed/49lY0HqqUVc",
+      "metadata_title": "Rihanna - Kiss It Better (Explicit)",
+      "metadata_author": "RihannaVEVO",
+      "evidence_url": "https://www.youtube.com/watch?v=49lY0HqqUVc"
+    },
+    {
+      "id": 48,
+      "title": "Jai Ho",
+      "artist": "A.R. Rahman",
+      "old_source": "https://www.youtube.com/embed/2R3XstG35sE",
+      "new_source": "https://www.youtube.com/embed/xwwAVRyNmgQ",
+      "metadata_title": "Jai Ho Slumdog Millionaire (Full Song)",
+      "metadata_author": "T-Series",
+      "evidence_url": "https://www.youtube.com/watch?v=xwwAVRyNmgQ"
+    },
+    {
+      "id": 50,
+      "title": "Aaye Ho Meri Zindagi",
+      "artist": "Lata Mangeshkar",
+      "old_source": "https://www.youtube.com/embed/1jz2R5Y6K8o",
+      "new_source": "https://www.youtube.com/embed/vQhWeIucOkc",
+      "metadata_title": "Aaye Ho Meri Zindagi Mein | ALKA YAGNIK | Raja Hindustani | 1996",
+      "metadata_author": "90's Gaane",
+      "evidence_url": "https://www.youtube.com/watch?v=vQhWeIucOkc",
+      "new_artist": "Alka Yagnik",
+      "new_album": "Raja Hindustani"
+    },
+    {
+      "id": 51,
+      "title": "Lag Ja Gale",
+      "artist": "Lata Mangeshkar",
+      "old_source": "https://www.youtube.com/embed/DaK_P5E8Jfk",
+      "new_source": "https://www.youtube.com/embed/SXlzZLnUyis",
+      "metadata_title": "Lag Ja Gale Se",
+      "metadata_author": "Lata Mangeshkar - Topic",
+      "evidence_url": "https://www.youtube.com/watch?v=SXlzZLnUyis"
+    },
+    {
+      "id": 52,
+      "title": "Thank U, Next",
+      "artist": "Ariana Grande",
+      "old_source": "https://www.youtube.com/embed/gl8xrxkKvT0",
+      "new_source": "https://www.youtube.com/embed/gl1aHhXnN1k",
+      "metadata_title": "Ariana Grande - thank u, next (Official Video)",
+      "metadata_author": "ArianaGrandeVevo",
+      "evidence_url": "https://www.youtube.com/watch?v=gl1aHhXnN1k"
+    },
+    {
+      "id": 53,
+      "title": "Break Up with Your Girlfriend",
+      "artist": "Ariana Grande",
+      "old_source": "https://www.youtube.com/embed/SoIgNbWW7eE",
+      "new_source": "https://www.youtube.com/embed/LH4Y1ZUUx2g",
+      "metadata_title": "Ariana Grande - break up with your girlfriend, i'm bored (Official Video)",
+      "metadata_author": "ArianaGrandeVevo",
+      "evidence_url": "https://www.youtube.com/watch?v=LH4Y1ZUUx2g"
+    },
+    {
+      "id": 54,
+      "title": "Circles",
+      "artist": "Post Malone",
+      "old_source": "https://www.youtube.com/embed/wXzVzuEL9bc",
+      "new_source": "https://www.youtube.com/embed/wXhTHyIgQ_U",
+      "metadata_title": "Post Malone - Circles",
+      "metadata_author": "PostMaloneVEVO",
+      "evidence_url": "https://www.youtube.com/watch?v=wXhTHyIgQ_U"
+    },
+    {
+      "id": 55,
+      "title": "Goodbyes",
+      "artist": "Post Malone",
+      "old_source": "https://www.youtube.com/embed/S2z-uJdKaLw",
+      "new_source": "https://www.youtube.com/embed/YgKDE5eYNqc",
+      "metadata_title": "Goodbyes",
+      "metadata_author": "Post Malone - Topic",
+      "evidence_url": "https://www.youtube.com/watch?v=YgKDE5eYNqc"
+    },
+    {
+      "id": 57,
+      "title": "Azadi",
+      "artist": "Ranveer Singh",
+      "old_source": "https://www.youtube.com/embed/TqzMm9nH5nU",
+      "new_source": "https://www.youtube.com/embed/4nCshJBODT4",
+      "metadata_title": "Azadi - Gully Boy| Ranveer Singh & Alia Bhatt | DIVINE | Dub Sharma | Siddhant | Zoya Akhtar",
+      "metadata_author": "Zee Music Company",
+      "evidence_url": "https://www.youtube.com/watch?v=4nCshJBODT4"
+    },
+    {
+      "id": 58,
+      "title": "Subanallah",
+      "artist": "Moosic Mood Mix",
+      "old_source": null,
+      "new_source": "https://www.youtube.com/embed/QYO6AlxiRE4",
+      "metadata_title": "\"Subhanallah\"  Full Video Song | Yeh Jawaani Hai Deewani | Pritam | Ranbir Kapoor, Deepika Padukone",
+      "metadata_author": "T-Series",
+      "evidence_url": "https://www.youtube.com/watch?v=QYO6AlxiRE4"
+    },
+    {
+      "id": 61,
+      "title": "Dil Dhadakne Do",
+      "artist": "Moosic Mood Mix",
+      "old_source": null,
+      "new_source": "https://www.youtube.com/embed/56ZzM4mz4yY",
+      "metadata_title": "'Dil Dhadakne Do' Title Song (Full VIDEO) | Priyanka Chopra, Farhan Akhtar",
+      "metadata_author": "T-Series",
+      "evidence_url": "https://www.youtube.com/watch?v=56ZzM4mz4yY"
+    },
+    {
+      "id": 67,
+      "title": "Barsaat",
+      "artist": "Moosic Mood Mix",
+      "old_source": null,
+      "new_source": "https://www.youtube.com/embed/ebZj_nrmH-c",
+      "metadata_title": "Barsaat - Banjaare (Official Video)",
+      "metadata_author": "Banjaare",
+      "evidence_url": "https://www.youtube.com/watch?v=ebZj_nrmH-c",
+      "new_artist": "Banjaare",
+      "new_album": "Barsaat"
+    },
+    {
+      "id": 71,
+      "title": "Kasoor",
+      "artist": "Moosic Mood Mix",
+      "old_source": null,
+      "new_source": "https://www.youtube.com/embed/BmUe3-sfr7E",
+      "metadata_title": "Prateek Kuhad - Kasoor (Official Music Video)",
+      "metadata_author": "Prateek Kuhad",
+      "evidence_url": "https://www.youtube.com/watch?v=BmUe3-sfr7E",
+      "new_artist": "Prateek Kuhad",
+      "new_album": "Kasoor"
+    }
+  ],
+  "unresolved": [
+    {
+      "id": 33,
+      "title": "Pathikada Sandhya",
+      "artist": "Shreya Ghoshal"
+    },
+    {
+      "id": 34,
+      "title": "Gunjan Gaun",
+      "artist": "Shreya Ghoshal"
+    },
+    {
+      "id": 38,
+      "title": "Khuda ke Liye",
+      "artist": "Vishal Dadlani"
+    },
+    {
+      "id": 39,
+      "title": "Dil Ruba",
+      "artist": "Vishal Dadlani"
+    },
+    {
+      "id": 49,
+      "title": "Rn Samayal",
+      "artist": "A.R. Rahman"
+    },
+    {
+      "id": 56,
+      "title": "Mere Naam",
+      "artist": "Ranveer Singh"
+    }
+  ]
+}

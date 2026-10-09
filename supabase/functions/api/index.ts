@@ -317,14 +317,18 @@ export async function handleRequest(req: Request): Promise<Response> {
       }
       if (resource === 'downloads') {
         if (!await run(db.rpc('has_premium'))) fail(403, 'Premium access is required.');
-        const download = (row: Row) => ({ id: row.id, song_id: row.song_id, title: row.songs?.title || '', artist: row.songs?.artists?.name || '', downloaded_at: row.downloaded_at, audio_url: row.songs?.audio_url });
-        if (method === 'GET' && parts.length === 3) return respond((await run(db.from('downloads').select('*,songs(*,artists(name))').eq('user_id', owner).order('downloaded_at', { ascending: false }))).map(download));
+        const download = (row: Row) => ({
+          id: row.id, song_id: row.song_id, title: row.songs?.title || '', artist: row.songs?.artists?.name || '', downloaded_at: row.downloaded_at,
+          audio_url: row.songs?.audio_url, cover_url: row.songs?.cover_url, mood: row.songs?.mood, duration: row.songs?.duration,
+          genre: row.songs?.genre, language: row.songs?.language, album_title: row.songs?.albums?.title ?? null,
+        });
+        const downloadSelect = '*,songs(*,artists(name),albums(title))';
+        if (method === 'GET' && parts.length === 3) return respond((await run(db.from('downloads').select(downloadSelect).eq('user_id', owner).order('downloaded_at', { ascending: false }))).map(download));
         if (method === 'POST' && parts.length === 3) {
           const id = integer(input.song_id, 'song_id');
-          const track = await run(db.from('songs').select('audio_url').eq('id', id).single());
-          // YouTube embeds cannot be saved as an audio file by this application.
-          if (!track.audio_url || /(?:youtube\.com|youtu\.be)/i.test(track.audio_url)) fail(422, 'This track is streaming only. Downloads require a licensed audio file.');
-          return respond(download(await run(db.from('downloads').upsert({ user_id: owner, song_id: id }, { onConflict: 'user_id,song_id' }).select('*,songs(*,artists(name))').single())));
+          // Downloads is a saved streaming library: store only the catalog link,
+          // never fetch or copy the song's media. The FK rejects unknown songs.
+          return respond(download(await run(db.from('downloads').upsert({ user_id: owner, song_id: id }, { onConflict: 'user_id,song_id' }).select(downloadSelect).single())));
         }
         if (method === 'DELETE' && parts.length === 4) { await run(db.from('downloads').delete().eq('user_id', owner).eq('song_id', integer(parts[3], 'song_id'))); return respond({ message: 'Download removed.' }); }
       }

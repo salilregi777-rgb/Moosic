@@ -1029,3 +1029,43 @@ a { color: inherit; text-decoration: none; }
   .auth-form-side { padding: 25px 22px 28px; }
   .auth-cow-corner { width: 96px; }
 }
+
+/* Playback continues behind Moosic's own audio controls; no floating video. */
+.playback-engine { position: fixed; left: -10000px; top: 0; width: 360px; height: 200px; overflow: hidden; pointer-events: none; opacity: 0; }
+
+/* Pointer-following gold edge light, inspired by EXIT CODE 0's BorderGlow. */
+:is(.solid-button, .outline-button, .icon-button, .play-button, .player-control, .auth-submit) { position: relative; isolation: isolate; --glow-angle: 45deg; }
+:is(.solid-button, .outline-button, .icon-button, .play-button, .player-control, .auth-submit)::after {
+  content: ''; position: absolute; inset: -2px; border-radius: inherit; pointer-events: none;
+  padding: 2px; background: conic-gradient(from var(--glow-angle), transparent 0deg, #fff8d9 18deg, #f1bc46 55deg, #ac68de 115deg, transparent 180deg, transparent 360deg);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); mask-composite: exclude; -webkit-mask-composite: xor;
+  opacity: 0; transition: opacity .2s ease; z-index: 2;
+}
+:is(.solid-button, .outline-button, .icon-button, .play-button, .player-control, .auth-submit):not(:disabled):is(:hover, :focus-visible) { box-shadow: 0 0 12px #f1bc4638, 0 0 30px #ac68de24; }
+:is(.solid-button, .outline-button, .icon-button, .play-button, .player-control, .auth-submit):not(:disabled):is(:hover, :focus-visible)::after { opacity: 1; }
+:is(.solid-button, .outline-button, .icon-button, .play-button, .player-control, .auth-submit):focus-visible { outline: 2px solid #f1bc46; outline-offset: 5px; }
+
+.demo-checkout-note { display: flex; align-items: center; gap: 8px; color: #f1bc46; font-size: 13px; letter-spacing: .03em; }
+.demo-payment-dialog { color: #f7efcd; background: #11101a; border: 1px solid #f1bc4670; border-radius: 18px; padding: 0; width: min(510px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; box-shadow: 0 30px 100px #000b, 0 0 55px #f1bc461a; margin: auto; }
+.demo-payment-dialog::backdrop { background: #080610c9; backdrop-filter: blur(7px); }
+.demo-payment-content { position: relative; padding: clamp(24px, 5vw, 36px); }
+.demo-payment-content h2 { font-family: Georgia, serif; font-weight: 400; font-size: clamp(32px, 6vw, 43px); line-height: 1.06; margin: 16px 0; letter-spacing: -.04em; }
+.demo-payment-content > .muted { font-size: 13px; line-height: 1.6; }
+.demo-dialog-close { position: absolute; right: 16px; top: 16px; display: grid; place-items: center; background: transparent; border: 1px solid #f7efcd33; border-radius: 50%; color: #f7efcd; width: 30px; height: 30px; cursor: pointer; }
+.demo-dialog-close:focus-visible { outline: 2px solid #f1bc46; outline-offset: 3px; }
+.demo-test-card { display: flex; gap: 14px; align-items: center; padding: 17px; border: 1px solid #f1bc4645; border-radius: 10px; background: linear-gradient(125deg, #f1bc460d, #824ec518); margin: 21px 0; color: #f1bc46; }
+.demo-test-card strong { font-size: 17px; letter-spacing: .06em; }
+.demo-test-card span { display: block; margin-top: 6px; color: #bcb6c6; font-size: 11px; }
+.demo-payment-content label { display: block; margin: 14px 0 7px; font-size: 12px; color: #ded7e8; }
+.demo-payment-content input { display: block; box-sizing: border-box; width: 100%; background: #08070d; border: 1px solid #f7efcd38; border-radius: 7px; color: #f7efcd; font-family: inherit; font-size: 15px; padding: 12px; outline: none; }
+.demo-payment-content input:focus { border-color: #f1bc46; box-shadow: 0 0 0 3px #f1bc4618; }
+.demo-payment-content input[aria-invalid='true'] { border-color: #fb9b92; }
+.demo-card-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.demo-field-error { color: #ffada7; font-size: 12px; line-height: 1.4; display: block; margin-top: 6px; }
+.demo-payment-privacy { display: flex; gap: 7px; align-items: center; color: #aaa3b4; font-size: 11px; margin: 18px 0; }
+.demo-submit { width: 100%; justify-content: center; border-radius: 7px; }
+.demo-payment-message { font-size: 13px; line-height: 1.5; margin: 12px 0 0; }
+@media (prefers-reduced-motion: reduce) {
+  :is(.solid-button, .outline-button, .icon-button, .play-button, .player-control, .auth-submit)::after { display: none; }
+  :is(.solid-button, .outline-button, .icon-button, .play-button, .player-control, .auth-submit) { transition: none; }
+}

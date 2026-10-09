@@ -1,0 +1,19 @@
+{
+  "reviewed_on": "2026-10-09",
+  "purpose": "Replace the three unverified leading Exhausted entries with seven recognizable songs for winding down. Retired rows remain for existing libraries and history.",
+  "verification": "Official YouTube oEmbed title/channel and public video durations checked. Provider playback availability can vary and is checked separately.",
+  "retired": [
+    { "id": 33, "title": "Pathikada Sandhya", "artist": "Shreya Ghoshal", "audio_url": "https://www.youtube.com/embed/LwjXxs9OVQs" },
+    { "id": 34, "title": "Gunjan Gaun", "artist": "Shreya Ghoshal", "audio_url": "https://www.youtube.com/embed/9Z8L8tNJYsE" },
+    { "id": 49, "title": "Rn Samayal", "artist": "A.R. Rahman", "audio_url": "https://www.youtube.com/embed/2N7Ar2kGpDY" }
+  ],
+  "tracks": [
+    { "title": "everything i wanted", "artist": "Billie Eilish", "album": "everything i wanted", "genre": "Ambient Pop", "mood": "Exhausted", "language": "English", "duration": 288, "video_id": "EgBJmlPo8Xw", "metadata_author": "BillieEilishVEVO" },
+    { "title": "Sparks", "artist": "Coldplay", "album": "Parachutes", "genre": "Acoustic Rock", "mood": "Exhausted", "language": "English", "duration": 227, "video_id": "1aokooixKIo", "metadata_author": "Coldplay - Topic" },
+    { "title": "Apocalypse", "artist": "Cigarettes After Sex", "album": "Cigarettes After Sex", "genre": "Dream Pop", "mood": "Exhausted", "language": "English", "duration": 290, "video_id": "sElE_BfQ67s", "metadata_author": "Cigarettes After Sex" },
+    { "title": "The Night We Met", "artist": "Lord Huron", "album": "Strange Trails", "genre": "Indie Folk", "mood": "Exhausted", "language": "English", "duration": 208, "video_id": "KtlgYxa6BMU", "metadata_author": "Lord Huron" },
+    { "title": "Holocene", "artist": "Bon Iver", "album": "Bon Iver, Bon Iver", "genre": "Indie Folk", "mood": "Exhausted", "language": "English", "duration": 344, "video_id": "TWcyIpul8OE", "metadata_author": "Bon Iver" },
+    { "title": "SLOW DANCING IN THE DARK", "artist": "Joji", "album": "BALLADS 1", "genre": "Alternative R&B", "mood": "Exhausted", "language": "English", "duration": 217, "video_id": "K3Qzzggn--s", "metadata_author": "88rising" },
+    { "title": "Anchor", "artist": "Novo Amor", "album": "Bathing Beach", "genre": "Indie Folk", "mood": "Exhausted", "language": "English", "duration": 256, "video_id": "OmKAn8rNbKg", "metadata_author": "Novo Amor" }
+  ]
+}

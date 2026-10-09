@@ -42,6 +42,38 @@ def infer_mood(genre):
     return 'Neutral'
 
 
+def low_battery_catalog():
+    return json.loads((ROOT / 'supabase/low-battery-catalog.json').read_text())
+
+
+def low_battery_inserts():
+    lines = []
+    for track in low_battery_catalog()['tracks']:
+        artist_ref = f"(select id from public.artists where lower(name)=lower({sql(track['artist'])}))"
+        album_ref = f"(select id from public.albums where artist_id={artist_ref} and title={sql(track['album'])})"
+        cover = f"https://i.ytimg.com/vi/{track['video_id']}/hqdefault.jpg"
+        source = f"https://www.youtube.com/embed/{track['video_id']}"
+        lines.append(f"insert into public.artists(name) values ({sql(track['artist'])}) on conflict do nothing;")
+        lines.append(f"insert into public.albums(title,artist_id,cover_url) values ({sql(track['album'])},{artist_ref},{sql(cover)}) on conflict do nothing;")
+        values = [sql(track['title']), artist_ref, album_ref, sql(track['genre']), sql(track['mood']), sql(track['language']), sql(track['duration']), sql(source), sql(cover), 'NULL']
+        lines.append('insert into public.songs(title,artist_id,album_id,genre,mood,language,duration,audio_url,cover_url,is_playable) values (' + ','.join(values) + ') on conflict do nothing;')
+    return lines
+
+
+def render_low_battery_migration():
+    lines = [
+        '-- Generated from supabase/low-battery-catalog.json by generate_seed.py.',
+        '-- Retire only the original unverified sources; retain IDs and library relationships.',
+        '-- Existing replacements and manager edits are never overwritten.',
+        'begin;',
+    ]
+    for track in low_battery_catalog()['retired']:
+        lines.append(f"update public.songs set is_playable=FALSE where title={sql(track['title'])} and artist_id=(select id from public.artists where lower(name)=lower({sql(track['artist'])})) and audio_url={sql(track['audio_url'])};")
+    lines.extend(low_battery_inserts())
+    lines.extend(['commit;', ''])
+    return '\n'.join(lines)
+
+
 def render():
     tree = ast.parse((ROOT / 'moosic-backend/main.py').read_text())
     catalog = literal_assignment(tree, 'artists')
@@ -50,6 +82,8 @@ def render():
     # These two concrete video IDs were already maintained by the old project.
     repairs.update({'Choo Lo': 'https://www.youtube.com/embed/sFMRqxCexDk', 'Soch Hai': 'https://www.youtube.com/embed/dnXGxMlV-rU'})
     verified_repairs = {(r['artist'], r['title']): r['new_source'] for r in json.loads((ROOT / 'supabase/catalog-source-repairs.json').read_text())['repairs']}
+    second_repairs = {(r['artist'], r['title']): r for r in json.loads((ROOT / 'supabase/catalog-source-repairs-v2.json').read_text())['repairs']}
+    retired_tracks = {(r['artist'], r['title']) for r in low_battery_catalog()['retired']}
     mood_songs = literal_assignment(tree, 'mood_songs')
     cover = 'https://images.unsplash.com/photo-1516280440614-37939bbacd81'
     existing_titles = {track['title'] for artist in catalog for album in artist['albums'] for track in album['songs']}
@@ -75,11 +109,23 @@ def render():
             lines.append(f"insert into public.albums(title,artist_id,release_date,cover_url) values ({sql(album['title'])},{artist_ref},{sql(album.get('release_date'))},{sql(album.get('cover_url'))}) on conflict do nothing;")
             for track in album['songs']:
                 totals['songs'] += 1
+                correction = second_repairs.get((artist['name'], track['title']), {})
+                track_artist_ref, track_album_ref = artist_ref, album_ref
+                if correction.get('new_artist'):
+                    track_artist_ref = f"(select id from public.artists where lower(name) = lower({sql(correction['new_artist'])}))"
+                    lines.append(f"insert into public.artists(name) values ({sql(correction['new_artist'])}) on conflict do nothing;")
+                    new_album = correction.get('new_album', track['title'])
+                    lines.append(f"insert into public.albums(title,artist_id) values ({sql(new_album)},{track_artist_ref}) on conflict do nothing;")
+                    track_album_ref = f"(select id from public.albums where artist_id={track_artist_ref} and title={sql(new_album)})"
                 audio = verified_repairs.get((artist['name'], track['title']), repairs.get(track['title'], track.get('audio_url')))
-                playable = False if not audio or track['title'] in unavailable else None
+                audio = correction.get('new_source', audio)
+                playable = False if not audio or track['title'] in unavailable or (artist['name'], track['title']) in retired_tracks else None
                 totals['without_audio'] += not bool(audio)
-                values = [sql(track['title']), artist_ref, album_ref, sql(track.get('genre')), sql(track.get('mood') or infer_mood(track.get('genre'))), sql(track.get('language', 'English')), sql(track.get('duration')), sql(audio), sql(track.get('cover_url')), sql(playable)]
+                values = [sql(track['title']), track_artist_ref, track_album_ref, sql(track.get('genre')), sql(track.get('mood') or infer_mood(track.get('genre'))), sql(track.get('language', 'English')), sql(track.get('duration')), sql(audio), sql(track.get('cover_url')), sql(playable)]
                 lines.append('insert into public.songs(title,artist_id,album_id,genre,mood,language,duration,audio_url,cover_url,is_playable) values (' + ','.join(values) + ') on conflict do nothing;')
+    lines.extend(low_battery_inserts())
+    totals['songs'] += len(low_battery_catalog()['tracks'])
+    totals['retired'] = len(retired_tracks)
     lines.extend(['commit;', ''])
     return '\n'.join(lines), totals
 
@@ -87,7 +133,10 @@ def render():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, default=ROOT / 'supabase/seed.sql')
+    parser.add_argument('--low-battery-migration', type=Path, help='Also regenerate the standalone Low Battery migration.')
     options = parser.parse_args()
     output, counts = render()
     options.output.write_text(output)
+    if options.low_battery_migration:
+        options.low_battery_migration.write_text(render_low_battery_migration())
     print(f"Wrote {options.output}: {counts}")

@@ -1,10 +1,16 @@
 import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Home as HomeIcon, ListMusic, Music2, Pause, Play, RotateCcw, Search, SkipBack, SkipForward, UserRound, X, Disc3, Pencil, Trash2, ArrowLeft, Shuffle, Volume2, VolumeX, Plus, Sparkles, Check, WandSparkles, Palette, LogOut, ArrowRight, Heart, Crown, LockKeyhole, Download, CreditCard } from 'lucide-react';
 import { Link, Route, Router as WouterRouter, Switch, useLocation } from 'wouter';
+import { SongArtwork, artworkSources } from '@/components/song-artwork';
+import { MoodDiscCarousel } from '@/components/mood-disc-carousel';
+import { ThemeAtmosphere } from '@/components/theme-atmosphere';
+import { themePalette, moodThemes, resolveRoomTheme } from '@/lib/themes';
+import { ButtonGlow } from '@/components/button-glow';
 import { AnimatedLogo } from '@/components/animated-logo';
 import { SongAudioEditor } from '@/components/song-audio-editor';
 import { PremiumCheckout } from '@/components/premium-checkout';
 import { requireSupabase, supabase, supabaseConfigured, supabaseApiRequest } from '@/lib/supabase';
+import { deleteSavedDownload, listSavedDownloads, saveDownload, type SavedDownload as BackendDownload } from '@/lib/downloads';
 import loginBackdropAsset from '@assets/moodsic-references/login-backdrop.png';
 import loadingFieldAsset from '@assets/moodsic-references/loading-field.png';
 import cowRunnerAsset from '@assets/moodsic-references/cow-runner.png';
@@ -15,7 +21,7 @@ import exhaustedMoodArt from '@assets/moodsic-references/mood-art-exhausted.png'
 import angryMoodArt from '@assets/moodsic-references/mood-art-angry.png';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { MediaPlayer } from '@/lib/media-player';
-import { extractYouTubeVideoId, resolvePlaybackSource, type PlaybackSource } from '@/lib/playback-source';
+import { resolvePlaybackSource, type PlaybackSource } from '@/lib/playback-source';
 
 type MoodName = 'Sad' | 'Happy' | 'Neutral' | 'Exhausted' | 'Angry';
 type Mood = { name: MoodName; color: string; background: string; text: string; line: string; description: string; art: string };
@@ -81,7 +87,9 @@ type PremiumStatus = {
   is_premium: boolean;
   plan?: string | null;
   status?: string | null;
-  source?: 'manual' | 'purchase' | null;
+  source?: 'manual' | 'purchase' | 'demo' | null;
+  demo_premium?: boolean;
+  can_cancel?: boolean;
   expires_at?: string | null;
   manual_premium?: boolean;
 };
@@ -101,22 +109,14 @@ type ManagerDashboardData = {
 type ManagerUser = { id: number; name: string; username: string; email: string; role: string; is_premium: boolean };
 type ManagerPayment = { id: number; user_id: number; plan: string; amount: number; currency: string; status: string; payment_date: string };
 
-type BackendDownload = {
-  id: number;
-  song_id: number;
-  title: string;
-  artist: string;
-  downloaded_at: string;
-  audio_url?: string | null;
-};
 type AuthMode = 'login' | 'signup';
 
 const moods: Mood[] = [
-  { name: 'Sad', color: '#0c0d88', background: '#313ca8', text: '#f7efcd', line: 'Let the blue stay awhile.', description: 'A soft landing for the feelings that have nowhere else to go.', art: sadMoodArt },
-  { name: 'Happy', color: '#f1bc46', background: '#f7d579', text: '#3d0000', line: 'Put some light back in the room.', description: 'Bright edges, open windows, and a little more movement.', art: happyMoodArt },
-  { name: 'Neutral', color: '#5e08aa', background: '#9b55cb', text: '#f7efcd', line: 'A blank page with a pulse.', description: 'A considered middle ground for thinking, making, and drifting.', art: neutralMoodArt },
-  { name: 'Exhausted', color: '#86a896', background: '#b6d3be', text: '#3d0000', line: 'Nothing to prove tonight.', description: 'Low lamps and slow songs for coming back to yourself.', art: exhaustedMoodArt },
-  { name: 'Angry', color: '#da553b', background: '#ef8a76', text: '#f7efcd', line: 'Turn it up. Let it out.', description: 'A loud, honest room for the heat under your skin.', art: angryMoodArt },
+  { name: 'Sad', color: '#829ece', background: '#080c14', text: '#d7d2c9', line: 'Let the blue stay awhile.', description: 'A soft landing for the feelings that have nowhere else to go.', art: sadMoodArt },
+  { name: 'Happy', color: '#c3a074', background: '#120e09', text: '#d7d2c9', line: 'Put some light back in the room.', description: 'Bright edges, open windows, and a little more movement.', art: happyMoodArt },
+  { name: 'Neutral', color: '#b49bcf', background: '#100b16', text: '#d7d2c9', line: 'A blank page with a pulse.', description: 'A considered middle ground for thinking, making, and drifting.', art: neutralMoodArt },
+  { name: 'Exhausted', color: '#7fb9ac', background: '#080f0e', text: '#d7d2c9', line: 'Nothing to prove tonight.', description: 'Low lamps and slow songs for coming back to yourself.', art: exhaustedMoodArt },
+  { name: 'Angry', color: '#c18779', background: '#120b0b', text: '#d7d2c9', line: 'Turn it up. Let it out.', description: 'A loud, honest room for the heat under your skin.', art: angryMoodArt },
 ];
 
 const fallbackTracks: Track[] = [
@@ -179,7 +179,7 @@ const playlistBlueprints = [
   { id: 'p2-hindi', name: 'Desi Daydream', mood: 'Happy' as MoodName, language: 'Hindi', description: 'Hindi songs for the bright side.' },
   { id: 'p3', name: 'The Middle Distance', mood: 'Neutral' as MoodName, language: 'non-hindi', description: 'Focus without the fuss.' },
   { id: 'p3-hindi', name: 'Soft Focus', mood: 'Neutral' as MoodName, language: 'Hindi', description: 'Hindi songs for an easy middle ground.' },
-  { id: 'p4', name: 'Low Battery', mood: 'Exhausted' as MoodName, language: 'non-hindi', description: 'Soft sounds for a soft landing.' },
+  { id: 'p4', name: 'Low Battery', mood: 'Exhausted' as MoodName, language: 'all', description: 'Soft sounds for a soft landing.' },
   { id: 'p4-hindi', name: 'Sukoon Station', mood: 'Exhausted' as MoodName, language: 'Hindi', description: 'Hindi songs for the slow comedown.' },
   { id: 'p5', name: 'Loudly, Please', mood: 'Angry' as MoodName, language: 'non-hindi', description: 'Pressure, released.' },
   { id: 'p5-hindi', name: 'Gussa FM', mood: 'Angry' as MoodName, language: 'Hindi', description: 'Hindi songs for the fire in your chest.' },
@@ -241,7 +241,7 @@ function buildDefaultPlaylists(catalog: Track[]): Playlist[] {
   return playlistBlueprints.map((blueprint) => {
     const moodTracks = catalog.filter((track) => track.mood === blueprint.mood);
     const sideTracks = moodTracks.filter((track) =>
-      blueprint.language === 'Hindi'
+      blueprint.language === 'all' ? true : blueprint.language === 'Hindi'
         ? track.language?.toLowerCase() === 'hindi'
         : track.language?.toLowerCase() !== 'hindi'
     );
@@ -249,6 +249,10 @@ function buildDefaultPlaylists(catalog: Track[]): Playlist[] {
     // If a language side happens to be empty, use the mood catalogue rather than
     // rendering a playlist that cannot be opened.
     const selectedTracks = sideTracks.length > 0 ? sideTracks : moodTracks;
+    // Keep the existing Hindi track after the new Low Battery selections.
+    if (blueprint.id === 'p4') {
+      selectedTracks.sort((a, b) => Number(a.language?.toLowerCase() === 'hindi') - Number(b.language?.toLowerCase() === 'hindi'));
+    }
 
     return {
       id: blueprint.id,
@@ -263,43 +267,13 @@ function buildDefaultPlaylists(catalog: Track[]): Playlist[] {
 
 const fallbackPlaylists = buildDefaultPlaylists(fallbackTracks);
 
-function moodFor(name: MoodName) {
+export function moodFor(name: MoodName) {
   return moods.find((mood) => mood.name === name) ?? moods[2];
 }
 
 function moodStyle(mood: Mood): CSSProperties {
-  return { '--mood': mood.color, '--mood-bg': mood.background, '--mood-text': mood.text } as CSSProperties;
+  return { '--mood': `var(--app-accent, ${mood.color})`, '--mood-bg': mood.background, '--mood-text': '#d7d2c9' } as CSSProperties;
 }
-
-function readableTextColor(color: string) {
-  const hex = color.replace('#', '');
-  if (hex.length !== 6) return '#f7efcd';
-  const channels = [0, 2, 4].map((index) => Number.parseInt(hex.slice(index, index + 2), 16) / 255);
-  const luminance = channels.map((channel) => channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4)
-    .reduce((sum, channel, index) => sum + channel * [0.2126, 0.7152, 0.0722][index], 0);
-  return luminance > 0.47 ? '#3d0000' : '#f7efcd';
-}
-
-function mutedTextColor(background?: string) {
-  if (!background) return '#9d99a3';
-  const hex = background.replace('#', '');
-  if (hex.length !== 6) return '#9d99a3';
-  const channels = [0, 2, 4].map((index) => Number.parseInt(hex.slice(index, index + 2), 16) / 255);
-  const luminance = channels.map((channel) => channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4)
-    .reduce((sum, channel, index) => sum + channel * [0.2126, 0.7152, 0.0722][index], 0);
-  return luminance > 0.13 ? '#4f4b57' : '#aaa6b2';
-}
-
-const themePalette = [
-  { name: 'Blush With Benefits', color: '#b34b4b' },
-  { name: 'Moss Boss', color: '#78ba61' },
-  { name: 'Beetlejuice Berry', color: '#7f0202' },
-  { name: 'Blue Me Away', color: '#4d7fde' },
-  { name: 'Grape Expectations', color: '#c860ca' },
-  { name: 'Sea-riously Chill', color: '#3aaaa1' },
-  { name: 'Orange You Listening', color: '#ee933f' },
-  { name: 'Drama Llama Pink', color: '#ea3b94' },
-];
 
 function avatarInitial(user: AuthUser | null) {
   return user?.username?.trim().charAt(0).toUpperCase() || user?.name?.trim().charAt(0).toUpperCase() || '?';
@@ -926,12 +900,13 @@ function Navigation({ mobile = false, authUser }: { mobile?: boolean; authUser?:
   );
 }
 
-function Shell({ children, authUser, appBackground, isPremium }: { children: ReactNode; authUser: AuthUser; appBackground?: string; isPremium: boolean }) {
+export function Shell({ children, authUser, appBackground, isPremium }: { children: ReactNode; authUser: AuthUser; appBackground?: string; isPremium: boolean }) {
   const [location] = useLocation();
   const isPicker = location === '/';
-  const appForeground = readableTextColor(appBackground ?? '#090a12');
+  const roomTheme = resolveRoomTheme(appBackground);
   return (
-    <div className={`moodsic-app ${isPicker ? 'moodsic-app--picker' : ''}`} style={{ '--app-background': appBackground ?? '#090a12', '--app-foreground': appForeground, '--muted-ink': mutedTextColor(appBackground) } as CSSProperties}>
+    <div className={`moodsic-app ${isPicker ? 'moodsic-app--picker' : ''}`} style={{ '--app-background': roomTheme.background, '--app-foreground': '#d7d2c9', '--app-accent': roomTheme.accent, '--muted-ink': '#a6a1ad' } as CSSProperties}>
+      <ThemeAtmosphere theme={roomTheme} />
       <div className="shell-grid">
         <aside className={`side-rail ${isPicker ? 'picker-hidden-rail' : ''}`}>
           <Brand />
@@ -961,15 +936,15 @@ function Shell({ children, authUser, appBackground, isPremium }: { children: Rea
                   href="/premium"
                   data-testid="link-plan-status"
                   style={{
-                    border: `1px solid ${isPremium ? '#f1bc46' : '#575866'}`,
-                    color: isPremium ? '#f1bc46' : '#c7c1c9',
+                    border: `1px solid ${isPremium ? roomTheme.accent : '#575866'}`,
+                    color: isPremium ? roomTheme.accent : '#c7c1c9',
                     borderRadius: 999,
                     padding: '8px 14px',
                     fontSize: 10,
                     letterSpacing: '.13em',
                     textTransform: 'uppercase',
                     textDecoration: 'none',
-                    background: isPremium ? 'rgba(241,188,70,.08)' : 'rgba(255,255,255,.025)',
+                    background: isPremium ? `${roomTheme.accent}14` : 'rgba(255,255,255,.025)',
                     whiteSpace: 'nowrap',
                   }}
                 >
@@ -983,32 +958,28 @@ function Shell({ children, authUser, appBackground, isPremium }: { children: Rea
           {children}
         </main>
       </div>
-      {!isPicker && <Navigation mobile />}
+      <Navigation mobile authUser={authUser} />
     </div>
   );
 }
 
-function MoodPicker({ selectMood }: { selectMood: (name: MoodName) => void }) {
-  return (
-    <section className="page picker-page">
-      <div className="picker-intro animate-rise">
-        <h1 className="display-title">How are you<br /><em>feeling?</em></h1>
-        <p>Pick a feeling and we’ll find the right record for the room you’re in.</p>
-      </div>
-      <div className="mood-carousel-wrap animate-rise-2">
-        <div className="mood-list" role="list" aria-label="Choose your mood">
-        {moods.map((mood, index) => (
-          <button key={mood.name} className={`mood-choice mood-choice--${index + 1}`} style={moodStyle(mood)} onClick={() => selectMood(mood.name)} data-testid={`button-mood-${mood.name.toLowerCase()}`}>
-            <span className="mood-color-surface" aria-hidden="true"><img src={mood.art} alt="" /></span>
-            <span className="mood-card-footer">
-              <span className="mood-card-name">{mood.name}</span>
-            </span>
-          </button>
-        ))}
-        </div>
-      </div>
-    </section>
-  );
+export function MoodPicker({ selectMood, activeMood, previewMood }: { selectMood: (name: MoodName) => void; activeMood: MoodName; previewMood: (name: MoodName) => void }) {
+  const active = Math.max(0, moods.findIndex(mood => mood.name === activeMood));
+  const mood = moods[active];
+  const browse = (direction: number) => previewMood(moods[(active + direction + moods.length) % moods.length].name);
+  return <section className="page mood-gallery" aria-label="Choose your mood">
+    <div className="gallery-heading">
+      <div><span className="eyebrow">A record for every version of you</span><h1>Your mood.<br /><em>On repeat.</em></h1></div>
+      <p>Take a breath. Find your frequency.<br />There’s a room for how you feel.</p>
+    </div>
+    <MoodDiscCarousel discs={moods.map(item => ({ ...item, subtitle: moodThemes[item.name].name }))} active={active} onPreview={index => previewMood(moods[index].name)} onSelect={index => selectMood(moods[index].name)} />
+    <div className="gallery-caption">
+      <div className="gallery-counter"><span>{String(active + 1).padStart(2, '0')}</span><span>/ 05</span></div>
+      <div className="gallery-mood-copy" aria-live="polite" aria-atomic="true"><div key={mood.name} className="gallery-copy-content"><h2>{mood.name}</h2><p>{mood.description}</p></div></div>
+      <button className="solid-button gallery-enter" onClick={() => selectMood(mood.name)}>Enter this mood <ArrowRight size={16} /></button>
+    </div>
+    <div className="gallery-footer"><span>SCROLL / DRAG / ARROWS / SPACE TO FLIP</span><div className="gallery-controls"><button className="icon-button" onClick={() => browse(-1)} aria-label="Previous mood"><ArrowLeft size={18} /></button><div className="gallery-dots">{moods.map(item => <button key={item.name} className={item.name === mood.name ? 'selected' : ''} onClick={() => previewMood(item.name)} aria-label={`Browse ${item.name} mood`} aria-pressed={item.name === mood.name} />)}</div><button className="icon-button" onClick={() => browse(1)} aria-label="Next mood"><ArrowRight size={18} /></button></div><span>MADE FOR YOUR CURRENT SELF</span></div>
+  </section>;
 }
 
 function PlaylistChoicePage({ moodName, library, choosePlaylist }: { moodName: MoodName; library: Playlist[]; choosePlaylist: (playlist: Playlist) => void }) {
@@ -1039,16 +1010,12 @@ function PlaylistChoicePage({ moodName, library, choosePlaylist }: { moodName: M
   );
 }
 
-function RecordCover({ mood, label = 'MOOSIC' }: { mood: Mood; label?: string }) {
-  return (
-    <div className="record-stage" style={moodStyle(mood)} aria-label={`${mood.name} vinyl record`}>
-      <div className="record-shadow" />
-      <div className="vinyl">
-        <div className="label"><span className="label-text">{label}</span></div>
-      </div>
-      <div className="tone-arm"><span className="needle" /></div>
-    </div>
-  );
+export function RecordCover({ mood, track, isPlaying = false }: { mood: Mood; track: Track; isPlaying?: boolean }) {
+  return <div className={`record-stage ${isPlaying ? 'is-playing' : ''}`} style={moodStyle(mood)} aria-label={`${track.title} CD player — ${isPlaying ? 'playing' : 'paused'}`}>
+    <div className="deck-topline"><span>MOOSIC / DISC 01</span><span className="deck-status">{isPlaying ? 'PLAYING' : 'STANDBY'}</span></div>
+    <div className="record-shadow" /><div className="vinyl" data-testid="playing-disc" style={{ animationPlayState: isPlaying ? 'running' : 'paused' }}><SongArtwork track={track} className="disc-artwork" /><div className="disc-hub" /><div className="disc-rim" /></div>
+    <div className="tone-arm"><span className="needle" /></div><div className="deck-bottomline"><span className={`deck-led ${isPlaying ? 'on' : ''}`} /><span>{isPlaying ? 'Let the record turn.' : 'A moment between songs.'}</span><span>33⅓</span></div>
+  </div>;
 }
 
 
@@ -1146,6 +1113,11 @@ function HomePage({
       ? playerTracks[safeTrackIndex]
       : tracks[0] ?? fallbackTracks[0];
 
+  useEffect(() => {
+    if (!playerStarted || !('mediaSession' in navigator) || !('MediaMetadata' in window)) return;
+    navigator.mediaSession.metadata = new MediaMetadata({ title: current.title, artist: current.artist, artwork: artworkSources(current).map(src => ({ src })) });
+  }, [current.title, current.artist, current.audioUrl, current.coverUrl, playerStarted]);
+
   const activeMood = moodFor(
     activeQueue.length > 0
       ? activeMoodName
@@ -1165,8 +1137,6 @@ function HomePage({
       ? Math.min(100, (displayedSeconds / totalSeconds) * 100)
       : 0;
 
-  const currentAudioUrl = current?.audioUrl;
-  const currentVideoId = extractYouTubeVideoId(currentAudioUrl);
 
   playerTracksRef.current = playerTracks;
   trackIndexRef.current = safeTrackIndex;
@@ -1832,13 +1802,8 @@ function HomePage({
     failedSourceKeysRef.current.add(source.key);
     setIsPlaying(false);
     isPlayingRef.current = false;
-    const nextIndex = findPlayableTrack(1);
-    if (nextIndex < 0) {
-      setNotice(message);
-      return;
-    }
-    setNotice(`${message} Trying the next track.`);
-    void switchToTrack(nextIndex, false, undefined, undefined, undefined, false);
+    // A failed source must never silently replace the song the listener chose.
+    setNotice(`${message} Press Play to retry this song, or choose another track.`);
   };
 
   persistOnUnmountRef.current = () => {
@@ -1899,26 +1864,9 @@ function HomePage({
     );
 
   const playerFrame = (
-    <aside
-      aria-label="YouTube video player"
-      data-testid="youtube-player-panel"
-      style={{
-        display: playerStarted && currentVideoId ? 'block' : 'none',
-        position: 'fixed', right: 22, bottom: compact ? 195 : 22,
-        zIndex: 85, width: 'min(360px, calc(100vw - 32px))',
-        background: '#0c0d12', border: `1px solid ${activeMood.color}55`,
-        boxShadow: '0 16px 45px rgba(0,0,0,.4)',
-      }}
-    >
-      <div ref={playerContainerRef} style={{ minHeight: 200 }} />
-      <a
-        href={currentVideoId ? `https://www.youtube.com/watch?v=${currentVideoId}` : undefined}
-        target="_blank" rel="noopener noreferrer"
-        style={{ display: 'block', padding: '8px 12px', fontSize: 11, color: '#c7c7cc' }}
-      >
-        Open {current.title} on YouTube ↗
-      </a>
-    </aside>
+    <div className="playback-engine" aria-hidden="true" inert>
+      <div ref={playerContainerRef} />
+    </div>
   );
 
   if (compact) {
@@ -1953,6 +1901,7 @@ function HomePage({
                 gap: 12,
               }}
             >
+              <SongArtwork track={current} className="mini-player-artwork" />
               <button
                 type="button"
                 onClick={() =>
@@ -2162,10 +2111,7 @@ function HomePage({
             </div>
           </div>
 
-          <RecordCover
-            mood={viewedMood}
-            label={selectedMood}
-          />
+          <RecordCover mood={activeMood} track={current} isPlaying={isPlaying} />
         </div>
 
         <div
@@ -2174,6 +2120,7 @@ function HomePage({
         >
           <div className="player-panel">
             <div className="now-playing">
+              <SongArtwork track={current} className="now-playing-artwork" />
               <div>
                 <div
                   className="eyebrow"
@@ -2205,7 +2152,7 @@ function HomePage({
 
             <div className="progress-wrap">
               <div
-                className="wave-row"
+                className={`wave-row ${isPlaying ? "is-playing" : ""}`}
                 aria-hidden="true"
               >
                 {Array.from({
@@ -2390,7 +2337,7 @@ function HomePage({
                   }
                 >
                   <Download size={14} />
-                  {isCurrentDownloaded ? 'Saved to library' : 'Save to library'}
+                  {isCurrentDownloaded ? 'Added to Downloads' : 'Download'}
                 </button>
               ) : (
                 <button
@@ -2483,14 +2430,7 @@ function HomePage({
                     }
                     data-testid={`button-queue-track-${index}`}
                   >
-                    <span className="queue-number">
-                      {String(
-                        index + 1
-                      ).padStart(
-                        2,
-                        '0'
-                      )}
-                    </span>
+                    <SongArtwork track={track} className="queue-artwork" />
 
                     <span>
                       <strong>
@@ -2556,9 +2496,10 @@ function HomePage({
   );
 }
 
-function PlaylistCover({ playlist }: { playlist: Playlist }) {
+function PlaylistCover({ playlist, tracks }: { playlist: Playlist; tracks: Track[] }) {
   const mood = moodFor(playlist.mood);
-  return <div className="cover-art" style={moodStyle(mood)}><span className="cover-label">{playlist.mood}</span></div>;
+  const firstTrack = tracks.find(track => playlist.trackTitles.includes(track.title));
+  return <div className="cover-art" style={moodStyle(mood)}>{firstTrack ? <SongArtwork track={firstTrack} className="playlist-artwork" /> : <img src={mood.art} alt={`${playlist.mood} playlist artwork`} className="playlist-mood-art" />}<span className="cover-label">{playlist.mood}</span></div>;
 }
 
 function vibeNames(mood: MoodName, vibe: string, chosenTracks: Track[]) {
@@ -2884,6 +2825,7 @@ function PlaylistBuilder({
                   )}
                 </span>
 
+                <SongArtwork track={track} />
                 <span>
                   <strong>{track.title}</strong>
                   <small>
@@ -2958,7 +2900,7 @@ function PlaylistsPage({
       <div className="library-grid animate-rise-2">
         {library.map((playlist) => (
           <article className="library-card" key={playlist.id} data-testid={`card-playlist-${playlist.id}`}>
-            <PlaylistCover playlist={playlist} />
+            <PlaylistCover playlist={playlist} tracks={tracks} />
             <div className="cover-meta">
               <div>
                 <h2>{playlist.name}</h2>
@@ -2997,11 +2939,13 @@ function PlaylistsPage({
 }
 
 function RestorePage({
+  tracks,
   deletedPlaylists,
   setNotice,
   onRestore,
   onRestoreAll,
 }: {
+  tracks: Track[];
   deletedPlaylists: Playlist[];
   setNotice: (notice: string) => void;
   onRestore: (playlist: Playlist) => Promise<void> | void;
@@ -3025,7 +2969,7 @@ function RestorePage({
             <div className="restore-list">
               {deletedPlaylists.map((playlist) => (
                 <div className="restore-item" key={playlist.id}>
-                  <PlaylistCover playlist={playlist} />
+                  <PlaylistCover playlist={playlist} tracks={tracks} />
                   <div className="restore-item-copy">
                     <strong>{playlist.name}</strong>
                     <span>{playlist.trackTitles.length} tracks / {playlist.mood}</span>
@@ -3114,8 +3058,8 @@ function DownloadsPage({
               lineHeight: 1.6,
             }}
           >
-            Premium listeners can save tracks to their MOOSIC downloads
-            library and manage them from one place.
+            Keep your favorite tracks together in Downloads.
+            Your list stays saved to your account.
           </p>
 
           <Link
@@ -3157,39 +3101,49 @@ function DownloadsPage({
         </Link>
       </div>
 
+      <p className="muted" style={{ marginTop: 18, lineHeight: 1.6 }}>
+        Your saved listening list. Tap Play to stream a song from here.
+        {' '}Downloads keeps songs in your account; it doesn’t save audio files to your device.
+      </p>
+
       {downloads.length > 0 ? (
         <div
           className="result-section animate-rise-2"
           style={{ marginTop: 24 }}
         >
           {downloads.map((download, index) => {
-            const track =
-              tracks.find(
-                (candidate) =>
-                  candidate.id === download.song_id
-              );
+            const savedTrack = backendSongToTrack({
+              id: download.song_id,
+              title: download.title,
+              artist_name: download.artist,
+              audio_url: download.audio_url,
+              cover_url: download.cover_url,
+              mood: download.mood,
+              duration: download.duration,
+              genre: download.genre,
+              language: download.language,
+            });
+            const track = tracks.find(candidate => candidate.id === download.song_id) ?? savedTrack;
+            const playable = Boolean(resolvePlaybackSource(track.audioUrl));
 
             return (
               <div
                 className="result-row"
                 key={download.id}
               >
-                <div className="result-row-main">
-                  <strong>{download.title}</strong>
+                <div className="result-row-main result-track">
+                  <SongArtwork track={track} /><div><strong>{track.title}</strong>
                   <small>
-                    {download.artist} / saved to Premium downloads
-                  </small>
+                    {track.artist}{track.duration !== '--:--' ? ` · ${track.duration}` : ''}
+                    {!playable && ' · Currently unavailable'}
+                  </small></div>
                 </div>
 
                 <div className="result-row-actions">
                   <button
                     className="icon-button"
-                    disabled={!track}
-                    onClick={() => {
-                      if (track) {
-                        playTrack(track);
-                      }
-                    }}
+                    disabled={!playable}
+                    onClick={() => playTrack(track)}
                     aria-label={`Play ${download.title}`}
                     data-testid={`button-play-download-${index}`}
                   >
@@ -3222,7 +3176,7 @@ function DownloadsPage({
           <Download size={26} />
           <h2>No downloads yet.</h2>
           <p>
-            Search the catalogue and save tracks to your Premium downloads library.
+            Tap Download on a song to add it here, then stream it whenever you like.
           </p>
 
           <Link
@@ -3370,9 +3324,9 @@ function SearchPage({
 
             {filteredTracks.map((track, index) => (
               <div className="result-row" key={`${track.id ?? track.title}-${index}`}>
-                <div className="result-row-main">
-                  <strong>{track.title}</strong>
-                  <small>{track.artist} / {track.mood}</small>
+                <div className="result-row-main result-track">
+                  <SongArtwork track={track} /><div><strong>{track.title}</strong>
+                  <small>{track.artist} / {track.mood}</small></div>
                 </div>
 
                 <div className="result-row-actions">
@@ -3417,8 +3371,8 @@ function SearchPage({
                       <Download size={13} />
                       {track.id &&
                       downloadedSongIds.has(track.id)
-                        ? 'Saved to library'
-                        : 'Save to library'}
+                        ? 'Added to Downloads'
+                        : 'Download'}
                     </button>
                   ) : (
                     <Link
@@ -3544,16 +3498,16 @@ function PremiumPage({
           <p className="muted" role="status">Checking your membership…</p>
         ) : isPremium ? (
           <>
-            <p style={{ margin: '0 0 18px', lineHeight: 1.5 }}>Your Premium membership is active. Set the mood and explore your saved tracks.</p>
+            <p style={{ margin: '0 0 18px', lineHeight: 1.5 }}>{premiumStatus?.source === 'demo' ? 'Demo payment successful — Premium is active. No money was charged.' : 'Your Premium membership is active.'} Set the mood and explore your saved tracks.</p>
             {premiumStatus?.expires_at && <p className="muted">Your paid pass ends {new Date(premiumStatus.expires_at).toLocaleDateString()}. It will not renew automatically.</p>}
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               <Link href="/theme" className="solid-button" data-testid="link-premium-themes"><Palette size={16} /> Choose a theme</Link>
               <Link href="/downloads" className="outline-button" data-testid="link-premium-library"><ListMusic size={16} /> Saved tracks</Link>
             </div>
-            {(premiumStatus?.manual_premium ?? premiumStatus?.source !== 'purchase') && <>
-              <p className="muted" style={{ fontSize: 14, lineHeight: 1.5, margin: '22px 0 12px' }}>You can end administrator-granted Premium access. Any paid pass remains active until its expiry.</p>
+            {(premiumStatus?.can_cancel ?? premiumStatus?.source !== 'purchase') && <>
+              <p className="muted" style={{ fontSize: 14, lineHeight: 1.5, margin: '22px 0 12px' }}>Cancel your demo Premium whenever you want. You can unlock it again with another demo payment.</p>
               <button type="button" className="outline-button small-button" onClick={() => void onCancel()} disabled={isBusy} data-testid="button-cancel-premium">
-                {isBusy ? 'Updating…' : 'End granted access'}
+                {isBusy ? 'Cancelling…' : 'Cancel Premium'}
               </button>
             </>}
           </>
@@ -3674,10 +3628,8 @@ function CustomThemePage({
         <div
           className="theme-preview"
           style={{
-            background: selectedColor ?? '#090a12',
-            color: readableTextColor(
-              selectedColor ?? '#090a12'
-            ),
+            background: resolveRoomTheme(selectedColor ?? undefined).background,
+            color: resolveRoomTheme(selectedColor ?? undefined).accent,
           }}
           aria-label={
             selectedColor
@@ -3699,7 +3651,7 @@ function CustomThemePage({
         aria-label="Custom background colors"
       >
         {themePalette.map(
-          ({ name, color }) => (
+          ({ name, color, effect }) => (
             <button
               key={color}
               className={`theme-swatch ${
@@ -3720,7 +3672,7 @@ function CustomThemePage({
               <span className="theme-swatch-dot" />
               <span className="theme-swatch-copy">
                 <strong>{name}</strong>
-                <small>{color}</small>
+                <small>{effect} · after dark</small>
               </span>
               {selectedColor === color && (
                 <Check size={16} />
@@ -4616,6 +4568,12 @@ function Router({
 
   const numericUserId =
     authUser ? Number(authUser.id) : NaN;
+  const downloadAccess = useRef({ userId: numericUserId, premium: Boolean(premiumStatus?.is_premium) });
+  const downloadReadVersion = useRef(0);
+  if (!Object.is(downloadAccess.current.userId, numericUserId) || downloadAccess.current.premium !== Boolean(premiumStatus?.is_premium)) {
+    downloadAccess.current = { userId: numericUserId, premium: Boolean(premiumStatus?.is_premium) };
+    downloadReadVersion.current += 1;
+  }
 
   const refreshPremiumStatus = async () => {
     if (!authUser) {
@@ -4662,13 +4620,13 @@ function Router({
     setPremiumBusy(true);
 
     try {
-      await apiRequest(
+      const result = await apiRequest(
         '/premium/cancel',
         { method: 'POST' }
-      );
+      ) as { message?: string };
 
       await refreshPremiumStatus();
-      setNotice('Administrator-granted Premium ended. Any paid pass keeps its remaining time.');
+      setNotice(result.message ?? 'Premium cancelled. You can unlock it again whenever you like.');
     } catch (error) {
       setNotice(
         error instanceof Error
@@ -4681,31 +4639,29 @@ function Router({
   };
 
   const refreshDownloads = async () => {
+    const access = downloadAccess.current;
+    if (!Object.is(access.userId, numericUserId)) return;
     if (
-      !premiumStatus?.is_premium ||
+      !access.premium ||
       !Number.isFinite(numericUserId)
     ) {
       setDownloads([]);
       return;
     }
 
+    const version = ++downloadReadVersion.current;
     try {
-      const payload = await apiRequest(
-        `/users/${numericUserId}/downloads`
-      );
-
-      setDownloads(
-        Array.isArray(payload)
-          ? payload as BackendDownload[]
-          : []
-      );
+      const saved = await listSavedDownloads(requireSupabase(), access.userId);
+      if (downloadAccess.current !== access || version !== downloadReadVersion.current) return;
+      setDownloads(saved);
     } catch (error) {
+      if (downloadAccess.current !== access || version !== downloadReadVersion.current) return;
       console.error(
         'Failed to load downloads:',
         error
       );
 
-      setDownloads([]);
+      setNotice('Could not load Downloads. Check your connection and try again.');
     }
   };
 
@@ -4723,7 +4679,9 @@ function Router({
   const downloadTrack = async (
     track: Track
   ) => {
-    if (!premiumStatus?.is_premium) {
+    const access = downloadAccess.current;
+    if (!Object.is(access.userId, numericUserId)) return;
+    if (!access.premium) {
       setNotice(
         'Unlock with Premium to save tracks to your downloads library.'
       );
@@ -4754,22 +4712,17 @@ function Router({
     }
 
     try {
-      await apiRequest(
-        `/users/${numericUserId}/downloads`,
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            song_id: track.id,
-          }),
-        }
-      );
-
-      await refreshDownloads();
+      downloadReadVersion.current += 1;
+      const saved = await saveDownload(requireSupabase(), access.userId, track.id);
+      if (downloadAccess.current !== access) return;
+      downloadReadVersion.current += 1;
+      setDownloads(current => [saved, ...current.filter(item => item.song_id !== saved.song_id)]);
 
       setNotice(
-        `${track.title} saved to your Premium downloads library.`
+        `${track.title} added to Downloads.`
       );
     } catch (error) {
+      if (downloadAccess.current !== access) return;
       setNotice(
         error instanceof Error
           ? error.message
@@ -4781,8 +4734,10 @@ function Router({
   const removeDownload = async (
     songId: number
   ) => {
+    const access = downloadAccess.current;
+    if (!Object.is(access.userId, numericUserId)) return;
     if (
-      !premiumStatus?.is_premium ||
+      !access.premium ||
       !Number.isFinite(numericUserId)
     ) {
       setNotice(
@@ -4792,19 +4747,17 @@ function Router({
     }
 
     try {
-      await apiRequest(
-        `/users/${numericUserId}/downloads/${songId}`,
-        {
-          method: 'DELETE',
-        }
-      );
-
-      await refreshDownloads();
+      downloadReadVersion.current += 1;
+      await deleteSavedDownload(requireSupabase(), access.userId, songId);
+      if (downloadAccess.current !== access) return;
+      downloadReadVersion.current += 1;
+      setDownloads(current => current.filter(item => item.song_id !== songId));
 
       setNotice(
         'Track removed from your downloads library.'
       );
     } catch (error) {
+      if (downloadAccess.current !== access) return;
       setNotice(
         error instanceof Error
           ? error.message
@@ -4959,6 +4912,13 @@ function Router({
       trackTitles: [track.title],
     });
     setLocation('/home');
+  };
+
+  const playDownloadedTrack = (track: Track) => {
+    // Saved entries include playback metadata, so they can start playing while
+    // the main catalogue is still loading or temporarily unavailable.
+    setCatalog(current => current.some(item => item.id === track.id) ? current : [...current, track]);
+    playTrack(track);
   };
 
   const signOut = async () => {
@@ -5321,9 +5281,9 @@ function Router({
         appBackground={
           customTheme ??
           (
-            location === '/home'
-              ? moodFor(selectedMood).background
-              : undefined
+            location === '/' || location === '/choose-playlist'
+              ? moodFor(browsingMood).color
+              : moodFor(selectedMood).color
           )
         }
       >
@@ -5362,9 +5322,7 @@ function Router({
 
           <Switch>
             <Route path="/">
-              <MoodPicker
-                selectMood={selectMood}
-              />
+              <MoodPicker selectMood={selectMood} activeMood={browsingMood} previewMood={setBrowsingMood} />
             </Route>
 
             <Route path="/choose-playlist">
@@ -5393,6 +5351,7 @@ function Router({
 
             <Route path="/restore">
               <RestorePage
+                tracks={catalog}
                 deletedPlaylists={deletedPlaylists}
                 setNotice={setNotice}
                 onRestore={restorePlaylist}
@@ -5419,7 +5378,7 @@ function Router({
                 isPremium={Boolean(premiumStatus?.is_premium)}
                 downloads={downloads}
                 tracks={catalog}
-                playTrack={playTrack}
+                playTrack={playDownloadedTrack}
                 onRemove={removeDownload}
               />
             </Route>
@@ -5477,6 +5436,7 @@ function App() {
   const [authMode, setAuthMode] = useState<AuthMode>('login');
   return (
     <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
+      <ButtonGlow />
       <AuthGate authUser={authUser} setAuthUser={setAuthUser} authMode={authMode} setAuthMode={setAuthMode}>
         <Router
           key={authUser?.id ?? 'signed-out'}

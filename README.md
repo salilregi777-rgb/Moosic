@@ -29,7 +29,17 @@ pnpm dlx vercel@62.4.0 deploy --prebuilt --prod --scope salilregi777-8318s-proje
 
 Use the same Supabase URL and publishable key in the maintained frontend's `.env.local` before building. Each production deployment updates the same website URL. Accounts, playlists, and uploaded media remain in Supabase; frontend deployment does not replace that data. Deploy database migrations and the `api` Edge Function separately when their code changes, following the [backend guide](supabase/README.md).
 
-The current deployment was built from this local checkout. Vercel is linked to the GitHub repository, but these changes have not been pushed there yet; push the updated source before relying on Git-triggered deployments. Existing private accounts and libraries still require the old database backup to import.
+Vercel is linked to this GitHub repository. Production can be updated from a local build or a push to the linked branch. Existing private accounts and libraries still require the old database backup to import.
+
+## Dark rooms, artwork, and demo Premium
+
+The homepage uses a dimensional mood-disc carousel with arrow-key, swipe, wheel, and button navigation. One disc is visible at rest; neighboring discs enter as you scroll. Only the hovered disc follows the cursor through damped 3D motion. Surface highlights move with its pose, and the metallic reverse includes fine grooves and etched mastering marks. Idle discs stop updating. Use Space or Flip disc to reveal the reflective reverse. Mood and saved themes share near-black backgrounds, muted accents, and one matching React Bits effect (Aurora, Particles, Waves, Threads, or Iridescence). Effects stop in hidden tabs and respect reduced-motion preferences. Component licensing is preserved in `public/third-party-notices.txt` in the maintained app.
+
+Song artwork appears on the animated disc, player, queue, search results, playlist covers, and downloaded-song list. Uploaded cover art takes priority; YouTube-backed songs fall back to their video thumbnail. The disc rotates only while the media player reports playback, pauses on buffering/errors, and stays still for reduced-motion users.
+
+Premium uses an explicitly labeled demo payment. Choose **Unlock Premium**, enter test card **4242 4242 4242 4242**, a current or future **MM/YY** expiry, and test CVV **123**. Card fields stay in the browser and are never sent or stored. Download adds a song reference to the account’s Downloads list; Play streams it through the same player without saving a media file to the device. Successful simulation enables Premium in Supabase; **Cancel Premium** removes demo access. No real charge or recurring payment is created.
+
+Catalog source repairs preserve song IDs and playlists. The second repair manifest records unresolved title/artist pairs. The Low Battery migration retires Pathikada Sandhya, Gunjan Gaun, and Rn Samayal while preserving their library relationships, and adds seven verified mellow selections. Khuda ke Liye, Dil Ruba, and Mere Naam still need corrected links or approval to replace them. The latest song migration is prepared and tested but awaits live dashboard application; see the backend deployment status. External video availability can also vary by region or provider; playback errors keep the selected song and offer retry instead of silently skipping it. Managed audio uploads provide a provider-independent option.
 
 # 🐄 Moosic
 ### *Your Daily Dose of Moo-sic.*

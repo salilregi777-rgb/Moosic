@@ -208,7 +208,7 @@ export class MediaPlayer {
           onAutoplayBlocked: () => {
             if (isCurrentVideo()) {
               this.events.onState(2);
-              this.events.onBlocked('Your browser paused autoplay. Press Play in the visible video player to start the music.');
+              this.events.onBlocked('Your browser paused autoplay. Press Play again to start the music.');
             }
           },
           onError: (event: { data: number }) => {

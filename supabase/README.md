@@ -2,9 +2,13 @@
 
 The runtime backend is Supabase Auth, Postgres with row-level security, Storage, and the `api` Edge Function. React remains a static website hosted on Vercel or another static host. The Python/SQLite application is a legacy reference, not a dependency of the new app.
 
-## Deployment status — 7 October 2026
+## Deployment status — 9 October 2026
 
-The frontend is deployed at [moosic-xi.vercel.app](https://moosic-xi.vercel.app), in Vercel scope `salilregi777-8318s-projects`. Project `meyuavzdjgyxunyxgqhu` has all three migrations, Storage buckets/policies, 72 catalog records (68 with sources), and the updated `api` function. Hosted checks returned the catalog and disabled payment configuration successfully and rejected unauthenticated checkout. Live browser checks confirmed playback of Mere Bina and switching to Blinding Lights. Real checkout remains disabled pending merchant configuration and an approved price. No legacy accounts or libraries have been imported because a source database backup was not provided.
+The frontend uses [moosic-xi.vercel.app](https://moosic-xi.vercel.app), in Vercel scope `salilregi777-8318s-projects`. Project `meyuavzdjgyxunyxgqhu` has all five migrations, Storage buckets/policies, 72 catalog records, and demo Premium activation/cancellation. All 66 corrected catalog sources passed a live-domain playback-start check; six unresolved title/artist pairs remain listed in `catalog-source-repairs-v2.json`. No legacy accounts or libraries have been imported without the source database backup.
+
+The frontend release includes the single-disc scroll reveal, hover-only tilt, detailed metallic backs, and the shortened Download confirmation. Migration `202610090001_low_battery.sql` is prepared and tested but has not yet been applied to the live project because the signed-in dashboard SQL editor is rendering blank. It retires three invalid Exhausted entries without deleting their IDs and adds seven new songs. All seven official video sources passed an actual playback-start check in the local app player. Apply only this new migration in the signed-in SQL editor, then verify the Low Battery playlist. Fresh setup seeds contain 79 records including the three retired rows.
+
+Downloads are account-saved streaming references, not downloaded files. The frontend reads and writes the existing `downloads` table through the signed-in Supabase client. Existing RLS enforces account ownership and Premium access. The matching Edge Function download-route update is prepared in this checkout; the frontend does not depend on that update being deployed.
 
 ## Configuration
 
@@ -41,11 +45,11 @@ pnpm dlx vercel@62.4.0 deploy --prebuilt --prod --scope salilregi777-8318s-proje
 
 `build:vercel` builds the frontend and prepares `.vercel/output` for deployment. Existing Supabase accounts, playlists, and Storage files persist independently of frontend deployments. For backend changes, add and apply a new database migration or deploy the updated `api` function separately. Do not rerun the initial schema against the live project.
 
-Vercel is connected to the GitHub repository, but the migration and frontend changes in this checkout have not been pushed to GitHub. The current release was deployed from local files. Push the updated source before relying on automatic deployments from Git.
+Vercel is connected to the GitHub repository. The current release was deployed from local files; the same source can also be deployed by pushing the linked branch.
 
 ## Catalog and audio
 
-`seed.sql` carries the existing code's catalog metadata (72 tracks). It is safe to repeat and does not overwrite manager edits. It is not a backup of a production database. Entries without a real audio URL are marked unavailable. Availability of third-party YouTube embeds is not guaranteed; the player presents controls, error recovery, and an external link when a video cannot be embedded.
+`seed.sql` carries the catalog metadata (79 records, including three retired originals). It is safe to repeat and does not overwrite manager edits. It is not a backup of a production database. Entries without a real audio URL are marked unavailable. Availability of third-party YouTube embeds is not guaranteed; the player presents its own controls and retry guidance when a source cannot be played. Failures do not silently advance to another song.
 
 The public `music` bucket accepts supported audio files up to 50 MB, `covers` accepts images up to 5 MB, and `avatars` up to 2 MB. Only managers can upload or change catalog media. Users can write avatars only beneath their own Auth UUID path. These buckets serve public media; private libraries, profiles, and listening activity remain protected by RLS.
 
@@ -83,8 +87,8 @@ deno check --node-modules-dir=auto --lock=supabase/functions/deno.lock supabase/
 
 The database harness runs the actual migration and RLS in PostgreSQL via PGlite with small stubs for Supabase's managed Auth/Storage schemas. It tests ownership boundaries, role escalation, payments, Premium access, reorder atomicity, and queue ordering. Hosted email delivery, Storage HTTP behavior, and third-party video availability still need live checks.
 
-Premium uses a verified Razorpay checkout for a nonrenewing 30-day pass. It remains disabled until the merchant keys, webhook, chosen price, and enable switch are configured; see [billing setup](BILLING.md). No real payment has been tested. Saved tracks are not an offline media cache. Client-side theme preferences remain per browser. The app has no service-role credentials in its browser bundle.
+Premium currently uses a clearly marked demo checkout. Test card 4242 4242 4242 4242, a current/future MM/YY expiry, and three-digit test CVV unlock all Premium features; only an empty activation request reaches Supabase, never card fields. Demo cancellation was checked against the live project. Optional verified Razorpay billing remains disabled pending merchant configuration; see [billing setup](BILLING.md). Saved tracks stream online and are not an offline media cache. Theme preferences remain per browser. The app has no service-role credentials in its browser bundle.
 
-On 7 October, 13 catalog sources were corrected using official artist/label metadata: four wrong recordings and nine missing URLs. Four entries still need an unambiguous source. See `catalog-source-repairs.json` for evidence. Metadata verification does not guarantee YouTube embedding or geographic availability. None of these are direct audio files; audio-only playback requires original or licensed audio URLs/uploads.
+The catalog repair manifests and migration 005 preserve song IDs and user playlists. Metadata and playback-start checks do not guarantee future provider or geographic availability. Use Manager uploads for audio files the project has permission to host.
 
 References: [Supabase Auth events](https://supabase.com/docs/reference/javascript/auth-onauthstatechange), [Edge Function authentication](https://supabase.com/docs/guides/functions/auth-legacy-jwt), [API key types](https://supabase.com/docs/guides/getting-started/api-keys).

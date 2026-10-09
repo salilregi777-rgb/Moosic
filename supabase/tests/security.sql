@@ -9,7 +9,8 @@ update public.profiles set role = 'manager' where email = 'security-manager@exam
 insert into public.artists(id,name) values (900000001,'Security fixture artist');
 insert into public.songs(id,title,artist_id,audio_url) values
   (900000001,'Security fixture song A',900000001,'https://example.test/a.mp3'),
-  (900000002,'Security fixture song B',900000001,'https://example.test/b.mp3');
+  (900000002,'Security fixture song B',900000001,'https://example.test/b.mp3'),
+  (900000003,'Security fixture streaming song',900000001,'https://www.youtube.com/watch?v=JGwWNGJdvx8');
 insert into public.playlists(id,user_id,name) values
   (900000001,(select id from public.profiles where username='security_a'),'A private playlist'),
   (900000002,(select id from public.profiles where username='security_b'),'B private playlist');
@@ -134,6 +135,14 @@ select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-00000000
 set local role authenticated;
 do $$ begin
   insert into public.downloads(user_id,song_id) values(public.current_profile_id(),900000001);
+  insert into public.downloads(user_id,song_id) values(public.current_profile_id(),900000003)
+    on conflict(user_id,song_id) do update set song_id=excluded.song_id;
+  insert into public.downloads(user_id,song_id) values(public.current_profile_id(),900000003)
+    on conflict(user_id,song_id) do update set song_id=excluded.song_id;
+  if (select count(*) from public.downloads where song_id=900000003)<>1 then raise exception 'FAIL: saved streaming track duplicated'; end if;
+  if not exists(select 1 from public.downloads d join public.songs s on s.id=d.song_id where s.audio_url='https://www.youtube.com/watch?v=JGwWNGJdvx8') then raise exception 'FAIL: saved stream source unavailable'; end if;
+  delete from public.downloads where song_id=900000003;
+  if exists(select 1 from public.downloads where song_id=900000003) then raise exception 'FAIL: saved streaming track removal failed'; end if;
   perform public.cancel_premium();
   if public.has_premium() then raise exception 'FAIL: cancellation did not revoke entitlement'; end if;
   if exists(select 1 from public.downloads) then raise exception 'FAIL: downloads accessible after cancellation'; end if;
