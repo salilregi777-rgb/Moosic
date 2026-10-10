@@ -1,0 +1,26 @@
+.cd-interaction {position:relative;width:100%;aspect-ratio:1;transform-style:preserve-3d;perspective:1200px;}
+.cd-hover-surface {width:100%;height:100%;transform-style:preserve-3d;will-change:transform;}
+.cd-interaction .physical-disc-reflection {transform:translateX(var(--cd-light-x,0px)) rotate(var(--cd-light-angle,0deg));}
+.cd-sketch {position:absolute;z-index:2;transform:translateZ(10px);inset:-3.7%;width:107.4%;height:107.4%;overflow:visible;pointer-events:none;transform-style:preserve-3d;opacity:0;transition:opacity .5s ease;}
+.cd-sketch path {stroke:#e8e6d8;stroke-width:.25;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:305;stroke-dashoffset:305;transition:stroke-dashoffset .72s cubic-bezier(.22,.61,.36,1);}
+.cd-interaction[data-active="true"] .cd-sketch {opacity:.8;}
+.cd-interaction[data-active="true"] .cd-sketch path {stroke-dashoffset:8;}
+.gallery-record:focus-visible {outline:none!important;}
+.gallery-record:focus-visible .cd-sketch {opacity:.9;}
+.gallery-record:focus-visible .cd-sketch path {stroke:#77d399;stroke-width:.25;stroke-dashoffset:8;}
+.gallery-record[disabled] {cursor:default;}
+.cd-entry-stage {position:fixed!important;right:auto!important;bottom:auto!important;z-index:90;overflow:visible!important;pointer-events:none!important;isolation:isolate;}
+.cd-entry-stage .gallery-record {pointer-events:none!important;opacity:1!important;}
+html[data-cd-entering] .edition-hero-disc {visibility:hidden;}
+html[data-cd-entering] .edition-hero-heading,html[data-cd-entering] .edition-hero-scroll,html[data-cd-entering] .mood-edition-nav {opacity:0;}
+@media(hover:none) { .is-featured .cd-sketch {opacity:.4;} .is-featured .cd-sketch path {stroke-dashoffset:8;} }
+@media(prefers-reduced-motion:reduce) {
+ .cd-hover-surface,.cd-sketch {transform:none!important;will-change:auto;}
+ .cd-sketch,.cd-sketch path {transition:none;}
+ .is-featured .cd-sketch {opacity:.65;}
+ .cd-sketch path {stroke-dashoffset:0;}
+}
+/* Leave the full rim and its loose contour in view at laptop heights. */
+.mood-front {user-select:none;}
+@media(min-width:800px) {.mood-front .gallery-record {width:min(55vw,70svh,760px);}}
+html[data-cd-entering] .edition-hero-disc .physical-disc-spin {animation-play-state:paused!important;}

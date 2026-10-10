@@ -3,6 +3,7 @@ import { animate, motion, useMotionValue, useReducedMotion, useScroll, useTransf
 import { ArrowDown, ArrowLeft, ArrowRight, Heart, Pause, Play } from 'lucide-react';
 import { Link } from 'wouter';
 import { PhysicalDisc } from './physical-disc';
+import { InteractiveCD } from './cd/interactive-cd';
 import { SongArtwork } from './song-artwork';
 import { accumulateScroll, GESTURE_IDLE, newGesture, swipeDirection } from '../lib/showcase-gesture';
 import { adjacentMood, durationLabel, MOOD_ORDER, type GalleryMoodName } from '../lib/mood-navigation';
@@ -13,7 +14,7 @@ export type MoodEdition = { loading?: boolean; name: GalleryMoodName; art: strin
 export type PlaybackView = { trackId?: number; mood?: GalleryMoodName; playing: boolean; likedIds: Set<number> };
 export type GalleryPlayerControls = { toggle: () => void; favorite: (track: MoodTrack) => void };
 const spring = { type: 'spring' as const, stiffness: 70, damping: 22 };
-function HomeDisc({ edition, index, position, selected, entering, playing, onClick }: { edition: MoodEdition; index: number; position: MotionValue<number>; selected: boolean; entering: boolean; playing: boolean; onClick: () => void }) {
+function HomeDisc({ edition, index, position, selected, entering, onClick }: { edition: MoodEdition; index: number; position: MotionValue<number>; selected: boolean; entering: boolean; onClick: () => void }) {
   const reduced = useReducedMotion();
   const distance = useTransform(position, value => index - value);
   const x = useTransform(distance, value => `${value * 89}%`);
@@ -23,13 +24,11 @@ function HomeDisc({ edition, index, position, selected, entering, playing, onCli
   const scale = useTransform(distance, value => 1 - Math.min(2, Math.abs(value)) * .09);
   const opacity = useTransform(distance, [-2, -1.3, 0, 1.4, 2], [0, .5, 1, .8, 0]);
   return <motion.button className={`gallery-record ${selected ? 'is-featured' : ''}`} style={{ x, y, rotate, rotateY, scale, opacity, zIndex: selected ? 2 : 1 }} tabIndex={selected || Math.abs(index - Math.round(position.get())) === 1 ? 0 : -1}
-    aria-label={selected ? `Enter ${edition.name} mood` : `Feature ${edition.name} mood`} onClick={onClick}>
-    <motion.div animate={{ scale: entering && selected && !reduced ? 1.2 : 1 }} transition={{ duration: .55 }}>
-      <PhysicalDisc {...edition} playing={playing} />
-    </motion.div>
+    disabled={entering} data-mood={edition.name} aria-label={selected ? `Enter ${edition.name} mood` : `Feature ${edition.name} mood`} onClick={onClick}>
+    <InteractiveCD frozen={entering}><PhysicalDisc {...edition} interactive={false} /></InteractiveCD>
   </motion.button>;
 }
-export function MoodGalleryHome({ editions, playback, onEnter }: { editions: MoodEdition[]; playback: PlaybackView; onEnter: (mood: GalleryMoodName) => void }) {
+export function MoodGalleryHome({ editions, onEnter }: { editions: MoodEdition[]; playback: PlaybackView; onEnter: (mood: GalleryMoodName, source?: HTMLButtonElement) => Promise<void> }) {
   const [index, setIndex] = useState(0), [entering, setEntering] = useState(false);
   const reduced = Boolean(useReducedMotion());
   const position = useMotionValue(0);
@@ -37,7 +36,7 @@ export function MoodGalleryHome({ editions, playback, onEnter }: { editions: Moo
   const gesture = useRef(newGesture());
   const controls = useRef<ReturnType<typeof animate> | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const enterTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const entryLock = useRef(false);
   const drag = useRef({ x: 0, y: 0, origin: 0, active: false, suppressUntil: 0 });
   const callbacks = useRef({ index, entering, browse: (_index: number) => {} });
   const browse = (next: number) => {
@@ -49,9 +48,14 @@ export function MoodGalleryHome({ editions, playback, onEnter }: { editions: Moo
   };
   callbacks.current = { index, entering, browse };
   const enter = () => {
-    if (entering || performance.now() < drag.current.suppressUntil) return;
+    if (entryLock.current || performance.now() < drag.current.suppressUntil) return;
+    entryLock.current = true;
+    controls.current?.stop(); clearTimeout(timer.current);
+    const source = region.current?.querySelector<HTMLButtonElement>(`[data-mood="${editions[index].name}"]`);
+    // Capture the live hover pose before the frozen state renders.
+    const transition = onEnter(editions[index].name, source ?? undefined);
     setEntering(true);
-    enterTimer.current = setTimeout(() => onEnter(editions[index].name), reduced ? 0 : 550);
+    void transition.finally(() => { entryLock.current = false; setEntering(false); });
   };
   useEffect(() => {
     const element = region.current;
@@ -71,7 +75,7 @@ export function MoodGalleryHome({ editions, playback, onEnter }: { editions: Moo
       }
     };
     element.addEventListener('wheel', wheel, { passive: false });
-    return () => { element.removeEventListener('wheel', wheel); controls.current?.stop(); clearTimeout(timer.current); clearTimeout(enterTimer.current); };
+    return () => { element.removeEventListener('wheel', wheel); controls.current?.stop(); clearTimeout(timer.current); };
   }, [editions.length, position, reduced]);
   const active = editions[index];
   return <section className={`mood-front ${entering ? 'is-entering' : ''}`} aria-label="Mood gallery" style={{ '--edition-color': active.color } as CSSProperties}>
@@ -80,7 +84,7 @@ export function MoodGalleryHome({ editions, playback, onEnter }: { editions: Moo
       if (event.target !== event.currentTarget) return;
       if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); browse(index + (event.key === 'ArrowRight' ? 1 : -1)); }
       if (event.key === 'Enter') enter();
-    }} onDragStart={event => event.preventDefault()} onPointerDown={event => { if (event.button !== 0) return; clearTimeout(timer.current); controls.current?.stop(); drag.current = { ...drag.current, x: event.clientX, y: event.clientY, origin: position.get(), active: true }; }}
+    }} onDragStart={event => event.preventDefault()} onPointerDown={event => { if (event.button !== 0 || entryLock.current) return; clearTimeout(timer.current); controls.current?.stop(); drag.current = { ...drag.current, x: event.clientX, y: event.clientY, origin: position.get(), active: true }; }}
       onPointerMove={event => {
         if (!drag.current.active || event.pointerType === 'touch') return;
         const dx = event.clientX - drag.current.x, dy = event.clientY - drag.current.y;
@@ -94,7 +98,7 @@ export function MoodGalleryHome({ editions, playback, onEnter }: { editions: Moo
         if (direction) { drag.current.suppressUntil = performance.now() + 450; browse(index + direction); }
         else if (Math.abs(dx) > 12) { drag.current.suppressUntil = performance.now() + 450; browse(index); }
       }} onPointerCancel={() => { drag.current.active = false; browse(index); }} onPointerLeave={() => { if (drag.current.active) { drag.current.active = false; browse(index); } }}>
-      {editions.map((edition, discIndex) => <HomeDisc key={edition.name} edition={edition} index={discIndex} position={position} selected={index === discIndex} entering={entering} playing={playback.playing && playback.mood === edition.name} onClick={() => { if (performance.now() < drag.current.suppressUntil) return; if (discIndex === index) enter(); else browse(discIndex); }} />)}
+      {editions.map((edition, discIndex) => <HomeDisc key={edition.name} edition={edition} index={discIndex} position={position} selected={index === discIndex} entering={entering} onClick={() => { if (performance.now() < drag.current.suppressUntil) return; if (discIndex === index) enter(); else browse(discIndex); }} />)}
     </div>
     <div className="mood-front-footer"><span>DRAG TO DISCOVER / CLICK TO ENTER</span><div className="edition-arrows"><button aria-label="Previous mood" onClick={() => browse(index - 1)} disabled={index === 0 || entering}><ArrowLeft size={19} /></button><span>{String(index + 1).padStart(2, '0')} / 05</span><button aria-label="Next mood" onClick={() => browse(index + 1)} disabled={index === editions.length - 1 || entering}><ArrowRight size={19} /></button></div><span>A RECORD FOR EVERY VERSION OF YOU</span></div>
   </section>;

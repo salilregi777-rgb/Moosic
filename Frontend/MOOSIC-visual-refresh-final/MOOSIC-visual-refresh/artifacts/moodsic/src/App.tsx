@@ -1,3 +1,4 @@
+import { useCDEntry } from '@/components/cd/use-cd-entry';
 import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Home as HomeIcon, ListMusic, Music2, Pause, Play, RotateCcw, Search, SkipBack, SkipForward, UserRound, X, Disc3, Pencil, Trash2, ArrowLeft, Shuffle, Volume2, VolumeX, Plus, Sparkles, Check, WandSparkles, Palette, LogOut, ArrowRight, Heart, Crown, LockKeyhole, Download, CreditCard } from 'lucide-react';
 import { Link, Route, Router as WouterRouter, Switch, useLocation } from 'wouter';
@@ -17,6 +18,7 @@ import { deleteSavedDownload, listSavedDownloads, saveDownload, type SavedDownlo
 import loginBackdropAsset from '@assets/moodsic-references/login-backdrop.png';
 import loadingFieldAsset from '@assets/moodsic-references/loading-field.png';
 import cowRunnerAsset from '@assets/moodsic-references/cow-runner.png';
+import { CD_ARTWORK } from './lib/cd-artwork';
 import sadMoodArt from '@assets/moodsic-references/mood-art-sad.png';
 import happyMoodArt from '@assets/moodsic-references/mood-art-happy.png';
 import neutralMoodArt from '@assets/moodsic-references/mood-art-neutral.png';
@@ -5249,16 +5251,17 @@ function Router({
 
   const moodTitles: Record<MoodName, string> = { Happy: 'The good days', Sad: 'After the rain', Neutral: 'In between', Angry: 'Let it out', Exhausted: 'Low battery' };
   const moodColors: Record<MoodName, string> = { Happy: '#d3ae5f', Sad: '#526fbc', Neutral: '#8caa93', Angry: '#c56c4c', Exhausted: '#91a6b1' };
-  const moodEditions: MoodEdition[] = MOOD_ORDER.map(name => ({ name, loading: catalogLoading, art: moodFor(name).art, color: moodColors[name], title: moodTitles[name], description: moodFor(name).description, tracks: catalog.filter(track => track.mood === name) }));
-  const navigateMood = (mood: MoodName) => {
+  const moodEditions: MoodEdition[] = MOOD_ORDER.map(name => ({ name, loading: catalogLoading, art: CD_ARTWORK[name], color: moodColors[name], title: moodTitles[name], description: moodFor(name).description, tracks: catalog.filter(track => track.mood === name) }));
+  const navigateMood = (mood: MoodName, direct = false) => {
     const navigate = () => { flushSync(() => setLocation(`/mood/${mood.toLowerCase()}`)); window.scrollTo({ top: 0, behavior: 'instant' }); };
     // The destination disc keeps its visual identity while the persistent player stays mounted.
     const transitions = document as Document & { startViewTransition?: (update: () => void) => { finished: Promise<void> } };
-    if (transitions.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    if (!direct && transitions.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
       const transition = transitions.startViewTransition(navigate);
       void transition.finished.catch(() => {});
     } else navigate();
   };
+  const enterMood = useCDEntry(mood => navigateMood(mood, true));
   const playMood = (edition: MoodEdition, track?: Track) => {
     setSelectedMood(edition.name);
     setSelectedPlaylist({ id: `play-mood-${edition.name}-${Date.now()}`, name: edition.title, mood: edition.name,
@@ -5365,7 +5368,7 @@ function Router({
 
           <Switch>
             <Route path="/">
-              <MoodGalleryHome editions={moodEditions} playback={playbackView} onEnter={navigateMood} />
+              <MoodGalleryHome editions={moodEditions} playback={playbackView} onEnter={enterMood} />
             </Route>
 
             <Route path="/mood/:slug">{params => {
