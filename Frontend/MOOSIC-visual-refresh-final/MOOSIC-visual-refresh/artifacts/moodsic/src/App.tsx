@@ -1,6 +1,6 @@
 import { useCDEntry } from '@/components/cd/use-cd-entry';
 import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
-import { Home as HomeIcon, ListMusic, Music2, Pause, Play, RotateCcw, Search, SkipBack, SkipForward, UserRound, X, Disc3, Pencil, Trash2, ArrowLeft, Shuffle, Volume2, VolumeX, Plus, Sparkles, Check, WandSparkles, Palette, LogOut, ArrowRight, Heart, Crown, LockKeyhole, Download, CreditCard } from 'lucide-react';
+import { Home as HomeIcon, ListMusic, Music2, Pause, Play, RotateCcw, Search, SkipBack, SkipForward, UserRound, X, Disc3, Pencil, Trash2, ArrowLeft, Shuffle, Volume2, VolumeX, Plus, Sparkles, Check, WandSparkles, Palette, LogOut, ArrowRight, Heart, Crown, LockKeyhole, Download, CreditCard, Grip, Minimize2, Maximize2 } from 'lucide-react';
 import { Link, Route, Router as WouterRouter, Switch, useLocation } from 'wouter';
 import { flushSync } from 'react-dom';
 import { SongArtwork, artworkSources } from '@/components/song-artwork';
@@ -27,6 +27,8 @@ import angryMoodArt from '@assets/moodsic-references/mood-art-angry.png';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { MediaPlayer } from '@/lib/media-player';
 import { resolvePlaybackSource, type PlaybackSource } from '@/lib/playback-source';
+import { OptionWheel, type OptionWheelItem } from '@/components/option-wheel';
+import { AIStudio } from '@/components/ai-studio';
 
 type MoodName = 'Sad' | 'Happy' | 'Neutral' | 'Exhausted' | 'Angry';
 type Mood = { name: MoodName; color: string; background: string; text: string; line: string; description: string; art: string };
@@ -888,6 +890,7 @@ function Navigation({ mobile = false, authUser }: { mobile?: boolean; authUser?:
     { href: '/restore', label: 'Restore', icon: RotateCcw },
     { href: '/search', label: 'Search', icon: Search },
     { href: '/downloads', label: 'Downloads', icon: Download },
+    { href: '/assistant', label: 'AI listening room', icon: Sparkles },
     { href: '/theme', label: 'Custom Theme', icon: Palette },
     { href: '/premium', label: 'Premium', icon: Crown },
     { href: '/profile', label: 'Profile', icon: UserRound },
@@ -904,6 +907,22 @@ function Navigation({ mobile = false, authUser }: { mobile?: boolean; authUser?:
       ))}
     </nav>
   );
+}
+
+function QuickAccessSidebar() {
+  const [location, setLocation] = useLocation();
+  const [open, setOpen] = useState(false);
+  useEffect(() => { setOpen(false); }, [location]);
+  const items: OptionWheelItem[] = [
+    { label: 'Mood collections', href: '/' }, { label: 'Now playing', href: '/home' },
+    { label: 'My playlists', href: '/playlists' }, { label: 'Search music', href: '/search' },
+    { label: 'AI listening room', href: '/assistant' }, { label: 'Your downloads', href: '/downloads' },
+    { label: 'Theme & ambience', href: '/theme' }, { label: 'Premium', href: '/premium' },
+  ];
+  return <aside className={`quick-access ${open ? 'is-open' : ''}`} aria-label="Quick access">
+    <div className="quick-access-panel"><div className="quick-access-heading">Move through MOOSIC</div><OptionWheel items={items} onSelect={item => { setLocation(item.href); setOpen(false); }} defaultSelected={Math.max(0, items.findIndex(item => item.href === location))} /></div>
+    <button type="button" className="quick-access-toggle" aria-label={open ? 'Close quick access' : 'Open quick access'} aria-expanded={open} onClick={() => setOpen(value => !value)}><ListMusic size={17} /></button>
+  </aside>;
 }
 
 export function Shell({ children, authUser, appBackground, isPremium }: { children: ReactNode; authUser: AuthUser; appBackground?: string; isPremium: boolean }) {
@@ -964,6 +983,7 @@ export function Shell({ children, authUser, appBackground, isPremium }: { childr
           {children}
         </main>
       </div>
+      {isPicker && <QuickAccessSidebar />}
       <Navigation mobile authUser={authUser} />
     </div>
   );
@@ -1061,6 +1081,11 @@ function HomePage({
   const [volume, setVolume] = useState(80);
   const [isMuted, setIsMuted] = useState(false);
   const [likedSongIds, setLikedSongIds] = useState<Set<number>>(new Set());
+  const [miniPlayerPosition, setMiniPlayerPosition] = useState<{ left: number; top: number } | null>(null);
+  const [miniPlayerState, setMiniPlayerState] = useState<'expanded' | 'minimizing' | 'minimized' | 'restoring'>('expanded');
+  const miniPlayerRef = useRef<HTMLElement | null>(null);
+  const miniPlayerDragRef = useRef<{ pointerId: number; offsetX: number; offsetY: number; width: number; height: number } | null>(null);
+  const miniPlayerTimerRef = useRef<number | null>(null);
 
   // Playback is independent from the room currently being browsed.
   const [activeQueue, setActiveQueue] = useState<Track[]>([]);
@@ -1073,6 +1098,45 @@ function HomePage({
   const currentTrackRef = useRef<Track | null>(null);
   const playerTracksRef = useRef<Track[]>([]);
   const trackIndexRef = useRef(0);
+
+  useEffect(() => () => { if (miniPlayerTimerRef.current !== null) window.clearTimeout(miniPlayerTimerRef.current); }, []);
+  const startMiniPlayerDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (!event.isPrimary || event.button !== 0 || !miniPlayerRef.current) return;
+    const rect = miniPlayerRef.current.getBoundingClientRect();
+    miniPlayerDragRef.current = { pointerId: event.pointerId, offsetX: event.clientX - rect.left, offsetY: event.clientY - rect.top, width: rect.width, height: rect.height };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  };
+  const moveMiniPlayer = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = miniPlayerDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const left = Math.max(8, Math.min(window.innerWidth - drag.width - 8, event.clientX - drag.offsetX));
+    const top = Math.max(8, Math.min(window.innerHeight - drag.height - 8, event.clientY - drag.offsetY));
+    setMiniPlayerPosition({ left, top });
+  };
+  const finishMiniPlayerDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (miniPlayerDragRef.current?.pointerId === event.pointerId) miniPlayerDragRef.current = null;
+  };
+  const keyboardMoveMiniPlayer = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+    event.preventDefault();
+    const rect = miniPlayerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const step = event.shiftKey ? 48 : 16;
+    const dx = event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0;
+    const dy = event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0;
+    setMiniPlayerPosition({ left: Math.max(8, Math.min(window.innerWidth - rect.width - 8, rect.left + dx)), top: Math.max(8, Math.min(window.innerHeight - rect.height - 8, rect.top + dy)) });
+  };
+  const minimizeMiniPlayer = () => {
+    if (miniPlayerTimerRef.current !== null) window.clearTimeout(miniPlayerTimerRef.current);
+    setMiniPlayerState('minimizing');
+    miniPlayerTimerRef.current = window.setTimeout(() => setMiniPlayerState('minimized'), 480);
+  };
+  const restoreMiniPlayer = () => {
+    if (miniPlayerTimerRef.current !== null) window.clearTimeout(miniPlayerTimerRef.current);
+    setMiniPlayerState('restoring');
+    miniPlayerTimerRef.current = window.setTimeout(() => setMiniPlayerState('expanded'), 480);
+  };
   const shuffleEnabledRef = useRef(false);
   const isPlayingRef = useRef(false);
   const playerErrorHandlerRef = useRef<(message: string, source: PlaybackSource) => void>(() => {});
@@ -1894,33 +1958,23 @@ function HomePage({
       <>
         {playerFrame}
 
-        {playerStarted && (
+        {playerStarted && <>
           <aside
+            ref={miniPlayerRef}
             aria-label="Background player"
+            aria-hidden={miniPlayerState === 'minimized'}
+            inert={miniPlayerState === 'minimized'}
             data-testid="mini-player"
-            style={{
-              position: 'fixed',
-              right: 22,
-              bottom: 22,
-              zIndex: 90,
-              width: 'min(430px, calc(100vw - 32px))',
-              padding: '13px 15px',
-              border: `1px solid ${activeMood.color}55`,
-              background:
-                'rgba(12, 13, 18, 0.96)',
-              boxShadow:
-                '0 18px 60px rgba(0,0,0,.45)',
-              backdropFilter:
-                'blur(18px)',
-            }}
+            className={`mini-player mini-player--${miniPlayerState}`}
+            style={{ '--mini-player-accent': activeMood.color, ...(miniPlayerPosition ? { left: miniPlayerPosition.left, top: miniPlayerPosition.top, right: 'auto', bottom: 'auto' } : {}) } as CSSProperties}
           >
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
-              }}
-            >
+            <div className="mini-player-toolbar">
+              <button type="button" className="mini-player-drag-handle" aria-label="Drag player; use arrow keys to move" title="Drag to move · Arrow keys also work" onPointerDown={startMiniPlayerDrag} onPointerMove={moveMiniPlayer} onPointerUp={finishMiniPlayerDrag} onPointerCancel={finishMiniPlayerDrag} onKeyDown={keyboardMoveMiniPlayer}>
+                <Grip size={15} /><span>DRAG TO MOVE</span>
+              </button>
+              <button type="button" className="mini-player-minimize" aria-label="Minimize player" title="Minimize with genie animation" onClick={minimizeMiniPlayer}><Minimize2 size={15} /></button>
+            </div>
+            <div className="mini-player-main">
               <SongArtwork track={current} className="mini-player-artwork" />
               <button
                 type="button"
@@ -1942,7 +1996,7 @@ function HomePage({
                 <span
                   style={{
                     display: 'block',
-                    color: activeMood.color,
+                    color: 'var(--mini-player-accent)',
                     fontSize: 10,
                     letterSpacing: '.15em',
                     textTransform: 'uppercase',
@@ -2041,9 +2095,7 @@ function HomePage({
             </div>
 
             <div
-              style={{
-                marginTop: 8,
-              }}
+              className="mini-player-progress"
             >
               <input
                 type="range"
@@ -2070,7 +2122,10 @@ function HomePage({
               />
             </div>
           </aside>
-        )}
+          <button type="button" className={`mini-player-bubble ${miniPlayerState === 'minimized' ? 'is-visible' : ''}`} aria-label={`Restore player: ${current.title} by ${current.artist}`} aria-hidden={miniPlayerState !== 'minimized'} tabIndex={miniPlayerState === 'minimized' ? 0 : -1} onClick={restoreMiniPlayer}>
+            <SongArtwork track={current} className="mini-player-bubble-artwork" /><Maximize2 size={13} className="mini-player-bubble-icon" />
+          </button>
+        </>}
       </>
     );
   }
@@ -5325,7 +5380,9 @@ function Router({
         appBackground={
           customTheme ??
           (
-            location === '/' || location === '/choose-playlist'
+            location.startsWith('/mood/')
+              ? moodFor(moodFromSlug(location.split('/')[2] || '') ?? selectedMood).color
+              : location === '/' || location === '/choose-playlist'
               ? moodFor(browsingMood).color
               : moodFor(selectedMood).color
           )
@@ -5426,6 +5483,10 @@ function Router({
                 downloadedSongIds={downloadedSongIds}
                 onDownload={downloadTrack}
               />
+            </Route>
+
+            <Route path="/assistant">
+              <AIStudio tracks={catalog} playTrack={playTrack} />
             </Route>
 
             <Route path="/downloads">
