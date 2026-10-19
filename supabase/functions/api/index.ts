@@ -131,15 +131,19 @@ async function openAIResponse(input: unknown, instructions: string, maxOutputTok
   }
   if (!response.ok) {
     let providerCode = '';
+    let providerType = '';
     try {
       const detail = await response.json();
-      providerCode = String(detail?.error?.code || detail?.error?.type || '');
+      providerCode = String(detail?.error?.code || '');
+      providerType = String(detail?.error?.type || '');
     } catch { /* The provider may return a non-JSON error body. */ }
-    console.error('OpenAI request failed', response.status, providerCode || 'unknown');
-    if (response.status === 429 && /insufficient_quota|billing_hard_limit/i.test(providerCode)) {
+    const requestId = response.headers.get('x-request-id') || 'unknown';
+    console.error('OpenAI request failed', response.status, providerCode || providerType || 'unknown', requestId);
+    const quotaError = /insufficient_quota|billing_hard_limit|credit_balance_exhausted|(?:project|organization)_(?:spend|usage)_limit_exceeded/i.test(`${providerCode} ${providerType}`);
+    if (response.status === 429 && quotaError) {
       fail(429, 'OpenAI API billing or project usage limit reached. Add API billing or raise the project limit, then try again.');
     }
-    if (response.status === 429) fail(429, 'OpenAI is rate limiting requests right now. Wait a minute and try again.');
+    if (response.status === 429) fail(429, 'OpenAI is temporarily rate limiting requests. Wait a minute and try again.');
     fail(502, 'The AI could not answer right now. Please try again.');
   }
   const result = await response.json();
