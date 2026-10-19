@@ -130,8 +130,17 @@ async function openAIResponse(input: unknown, instructions: string, maxOutputTok
     fail(502, 'The AI service could not be reached. Please try again.');
   }
   if (!response.ok) {
-    console.error('OpenAI request failed', response.status);
-    fail(response.status === 429 ? 429 : 502, response.status === 429 ? 'The AI is receiving too many requests. Please try again shortly.' : 'The AI could not answer right now. Please try again.');
+    let providerCode = '';
+    try {
+      const detail = await response.json();
+      providerCode = String(detail?.error?.code || detail?.error?.type || '');
+    } catch { /* The provider may return a non-JSON error body. */ }
+    console.error('OpenAI request failed', response.status, providerCode || 'unknown');
+    if (response.status === 429 && /insufficient_quota|billing_hard_limit/i.test(providerCode)) {
+      fail(429, 'OpenAI API billing or project usage limit reached. Add API billing or raise the project limit, then try again.');
+    }
+    if (response.status === 429) fail(429, 'OpenAI is rate limiting requests right now. Wait a minute and try again.');
+    fail(502, 'The AI could not answer right now. Please try again.');
   }
   const result = await response.json();
   const text = (result.output || []).flatMap((item: Row) => item.content || []).filter((item: Row) => item.type === 'output_text').map((item: Row) => item.text).join('\n').trim();
