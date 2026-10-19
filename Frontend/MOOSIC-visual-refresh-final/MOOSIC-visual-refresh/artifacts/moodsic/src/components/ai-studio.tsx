@@ -10,6 +10,7 @@ type Pick = { song: { id: number }; reason: string };
 function aiError(cause: unknown) {
   const message = cause instanceof Error ? cause.message : '';
   if (/endpoint not found/i.test(message)) return 'Supabase is missing the AI route. Deploy the updated api Edge Function; if you have not already, add OPENAI_API_KEY under Edge Function Secrets first.';
+  if (/receiving too many requests|rate limit|\b429\b/i.test(message)) return 'OpenAI rejected this request (HTTP 429). If it keeps happening, check that API billing is active and the project usage limit has room; a temporary rate limit usually clears after a short wait.';
   return message || 'The AI service is unavailable right now.';
 }
 export function AIStudio({ tracks, playTrack }: { tracks: Track[]; playTrack: (track: Track) => void }) {
