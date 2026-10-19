@@ -2597,7 +2597,7 @@ function PlaylistBuilder({
   isPremium,
   setNotice,
 }: {
-  onCreate: (playlist: Playlist) => Promise<void> | void;
+  onCreate: (playlist: Playlist) => Promise<boolean | void> | boolean | void;
   tracks: Track[];
   isPremium: boolean;
   setNotice: (notice: string) => void;
@@ -2944,7 +2944,7 @@ function PlaylistsPage({
   tracks: Track[];
   openPlaylist: (playlist: Playlist) => void;
   setNotice: (notice: string) => void;
-  onCreate: (playlist: Playlist) => Promise<void> | void;
+  onCreate: (playlist: Playlist) => Promise<boolean | void> | boolean | void;
   onDelete: (playlist: Playlist) => Promise<void> | void;
   isPremium: boolean;
 }) {
@@ -5018,12 +5018,12 @@ function Router({
 
   const createPlaylist = async (
     playlist: Playlist
-  ) => {
+  ): Promise<boolean> => {
     if (!Number.isFinite(numericUserId)) {
       setNotice(
         'Please sign in again before creating a playlist.'
       );
-      return;
+      return false;
     }
 
     try {
@@ -5115,6 +5115,7 @@ function Router({
       setNotice(
         `${playlist.name} is now saved to your account.`
       );
+      return true;
     } catch (error) {
       console.error(
         'Failed to create playlist:',
@@ -5126,6 +5127,7 @@ function Router({
           ? error.message
           : 'Could not create the playlist.'
       );
+      return false;
     }
   };
 
@@ -5486,7 +5488,7 @@ function Router({
             </Route>
 
             <Route path="/assistant">
-              <AIStudio tracks={catalog} playTrack={playTrack} />
+              <AIStudio tracks={catalog} playTrack={playTrack} onSavePlaylist={createPlaylist} />
             </Route>
 
             <Route path="/downloads">

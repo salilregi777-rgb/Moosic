@@ -12,14 +12,23 @@
 .ai-card-intro {margin:18px 0 16px;}
 .ai-recommend-button {display:inline-flex;align-items:center;gap:9px;border-radius:999px;padding:10px 16px;font:11px system-ui,sans-serif;}
 .ai-summary {margin:19px 0 4px;color:#ddd6ca;font:13px/1.7 Georgia,serif;}
-.ai-pick-list {display:grid;gap:2px;margin-top:14px;}
-.ai-pick {display:grid;grid-template-columns:50px minmax(0,1fr) 36px;align-items:center;gap:12px;padding:11px 0;border-top:1px solid #ffffff13;}
-.ai-pick-art,.ai-pick-art img,.ai-pick-art .artwork-fallback {width:50px;height:50px;border-radius:6px;object-fit:cover;}
-.ai-pick-copy {min-width:0;display:flex;flex-direction:column;gap:3px;}
-.ai-pick-copy strong,.ai-pick-copy span,.ai-pick-copy small {overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.ai-pick-copy strong {font:500 13px/1.3 Georgia,serif;}
-.ai-pick-copy span {color:var(--muted-ink);font:10px/1.4 system-ui,sans-serif;}
-.ai-pick-copy small {color:color-mix(in srgb,var(--app-accent) 82%,white);font:10px/1.4 system-ui,sans-serif;}
+.ai-generated-playlist {margin-top:20px;padding:14px;border:1px solid #ffffff17;border-radius:12px;background:linear-gradient(145deg,#ffffff08,#0002);}
+.ai-generated-heading {display:grid;grid-template-columns:72px minmax(0,1fr);gap:13px;align-items:center;padding-bottom:13px;border-bottom:1px solid #ffffff15;}
+.ai-generated-art,.ai-generated-art .song-artwork,.ai-generated-art img,.ai-generated-art .artwork-fallback {width:72px;height:72px;border-radius:8px;object-fit:cover;}
+.ai-generated-copy {min-width:0;}
+.ai-generated-copy .eyebrow {font-size:8px;}
+.ai-generated-copy h3 {margin:6px 0 4px;font:500 21px/1.1 Georgia,serif;}
+.ai-generated-copy p {margin:0;color:var(--muted-ink);font:10px/1.5 system-ui,sans-serif;}
+.ai-track-list {list-style:none;padding:0;margin:0;}
+.ai-track-row {display:grid;grid-template-columns:22px 38px minmax(0,1fr) 32px;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid #ffffff10;}
+.ai-track-index {color:#8f8b86;font:9px/1 system-ui,sans-serif;font-variant-numeric:tabular-nums;}
+.ai-track-art,.ai-track-art img,.ai-track-art .artwork-fallback {width:38px;height:38px;border-radius:5px;object-fit:cover;}
+.ai-track-copy {min-width:0;display:grid;gap:3px;}
+.ai-track-copy strong,.ai-track-copy span {overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ai-track-copy strong {font:500 12px/1.2 Georgia,serif;}
+.ai-track-copy span {color:var(--muted-ink);font:9px/1.3 system-ui,sans-serif;}
+.ai-save-playlist {display:inline-flex;align-items:center;justify-content:center;gap:8px;margin-top:13px;padding:9px 13px;border-radius:999px;font:10px system-ui,sans-serif;}
+.ai-save-playlist:disabled {opacity:.65;cursor:default;}
 .ai-play-button {display:grid;place-items:center;width:34px;height:34px;border:1px solid #ffffff22;border-radius:50%;background:#ffffff08;color:var(--app-accent);cursor:pointer;}
 .ai-play-button:hover {border-color:var(--app-accent);box-shadow:0 0 16px color-mix(in srgb,var(--app-accent) 20%,transparent);}
 .ai-empty {min-height:170px;display:grid;place-content:center;justify-items:center;gap:13px;color:var(--app-accent);text-align:center;}
@@ -29,10 +38,17 @@
 .ai-chat-messages {flex:1;min-height:290px;max-height:460px;overflow:auto;display:flex;flex-direction:column;gap:15px;padding:22px 2px 16px;scrollbar-color:#ffffff28 transparent;}
 .ai-message {max-width:90%;display:grid;grid-template-columns:24px 1fr;gap:9px;align-self:start;align-items:start;}
 .ai-message>span {display:grid;place-items:center;width:23px;height:23px;border-radius:50%;border:1px solid color-mix(in srgb,var(--app-accent) 45%,transparent);color:var(--app-accent);font:8px system-ui,sans-serif;}
+.ai-message-body {min-width:0;flex:1;}
 .ai-message p {margin:0;color:#ddd9d4;font:13px/1.7 system-ui,sans-serif;}
+.ai-message-body>.ai-generated-playlist {margin-top:12px;}
+.ai-message-body>.ai-generated-playlist .ai-generated-heading {grid-template-columns:54px minmax(0,1fr);}
+.ai-message-body>.ai-generated-playlist .ai-generated-art,.ai-message-body>.ai-generated-playlist .ai-generated-art .song-artwork,.ai-message-body>.ai-generated-playlist .ai-generated-art img,.ai-message-body>.ai-generated-playlist .ai-generated-art .artwork-fallback {width:54px;height:54px;}
+.ai-message-body>.ai-generated-playlist .ai-generated-copy h3 {font-size:18px;}
 .ai-message--user {align-self:end;grid-template-columns:1fr auto;text-align:right;}
 .ai-message--user>span {grid-column:2;grid-row:1;order:2;color:var(--muted-ink);border-color:#ffffff28;}
 .ai-message--user p {grid-column:1;grid-row:1;padding:10px 13px;border-radius:13px 3px 13px 13px;background:color-mix(in srgb,var(--app-accent) 11%,transparent);}
+.ai-message--user .ai-message-body {display:contents;}
+.ai-message--user .ai-generated-playlist {grid-column:1 / -1;grid-row:2;}
 .ai-thinking {display:flex;align-items:center;gap:8px;color:var(--muted-ink);font:11px system-ui,sans-serif;}
 .ai-thinking svg {animation:ai-turn 1.1s linear infinite;}
 @keyframes ai-turn {to{transform:rotate(360deg)}}
