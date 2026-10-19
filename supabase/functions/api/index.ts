@@ -133,7 +133,10 @@ async function aiResponse(input: unknown, instructions: string, maxOutputTokens:
       body: JSON.stringify({
         model: Deno.env.get('NVIDIA_MODEL') || 'openai/gpt-oss-20b',
         messages: format ? [...messages, { role: 'system', content: `Return only a valid JSON object matching this schema: ${JSON.stringify(format.schema)}. Do not include markdown or extra text.` }] : messages,
-        max_tokens: maxOutputTokens,
+        // GPT-OSS spends part of its output budget on internal reasoning. Keep
+        // that effort low and leave enough tokens for the user-visible answer.
+        max_tokens: Math.max(maxOutputTokens, 1400),
+        reasoning_effort: 'low',
         ...(responseFormat ? { response_format: responseFormat } : {}),
       }),
       signal: AbortSignal.timeout(25000),
@@ -160,8 +163,22 @@ async function aiResponse(input: unknown, instructions: string, maxOutputTokens:
     fail(502, 'The AI could not answer right now. Please try again.');
   }
   const result = await response.json();
-  const text = String(result.choices?.[0]?.message?.content || '').trim();
-  if (!text) fail(502, 'The AI returned an empty response. Please try again.');
+  const choice = result.choices?.[0];
+  const content = choice?.message?.content;
+  const text = (typeof content === 'string'
+    ? content
+    : Array.isArray(content)
+      ? content.map((part: unknown) => part && typeof part === 'object' ? String((part as Row).text || '') : '').join(' ')
+      : '').trim();
+  if (!text) {
+    console.error('NVIDIA AI returned no visible message content', {
+      model: result.model || Deno.env.get('NVIDIA_MODEL') || 'openai/gpt-oss-20b',
+      finishReason: choice?.finish_reason || 'unknown',
+      hasReasoning: Boolean(choice?.message?.reasoning_content),
+      requestId: response.headers.get('x-request-id') || 'unknown',
+    });
+    fail(502, 'NVIDIA completed without a user-facing answer. Please try again.');
+  }
   return text;
 }
 
